@@ -30,6 +30,11 @@ Tutta la documentazione dell'hackathon è organizzata nella cartella [`docs/`](f
    - Matrice di valutazione (Fattibilità, Impatto, Sfruttamento Hardware AMD, Eleggibilità premi).
    - Sezione operativa per annotare e selezionare le idee del team.
 
+5. 🚀 [**Concept scelto: PrintLoop**](file:///home/deggio/Desktop/coding/hackathon/AMD-Developer-Hackathon-ACT-III/docs/ideas/README.md) (`docs/ideas/`):
+   - Track 1: diagnosi visiva di difetti di stampa 3D, patch verificabile dei preset OrcaSlicer, loop con approvazione umana.
+   - Scheda operativa: architettura, metriche, rischi, spike tecnici e piano.
+   - Motivi per cui le altre idee sono state scartate.
+
 ---
 
 ## ⚡ Snapshot Rapido
@@ -49,6 +54,9 @@ Tutta la documentazione dell'hackathon è organizzata nella cartella [`docs/`](f
 
 ```text
 ├── docs/                           # Documentazione completa dell'hackathon
+│   ├── ideas/                      # Concept scelto
+│   │   ├── README.md               # Indice, vincoli verificati, idee scartate
+│   │   └── 01_printloop.md         # PrintLoop (diagnosi visiva + patch preset in loop)
 │   ├── BRAINSTORMING.md            # Idee, comparazioni e scelta del concept
 │   ├── HACKATHON_GUIDE.md          # Regole, requisiti di consegna e setup AMD
 │   ├── PRIZES_AND_EVALUATION.md    # Dettaglio premi e griglie di valutazione
