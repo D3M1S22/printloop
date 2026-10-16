@@ -1,0 +1,23 @@
+{
+  "status": "ok",
+  "version": "0.1.0",
+  "llm": {
+    "mode": "offline",
+    "model": null,
+    "base_url": null
+  },
+  "telemetry": {
+    "calls": 0,
+    "errors": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "latency_p50_ms": null,
+    "latency_p95_ms": null
+  },
+  "slicer": {
+    "available": true,
+    "version": "BambuStudio-02.08.02.61"
+  },
+  "max_iterations": 3,
+  "min_confidence": 0.6
+}

@@ -1,0 +1,24 @@
+[
+  {
+    "id": "e203963023",
+    "name": "Staffa motore",
+    "state": "escalated",
+    "outcome": "escalated",
+    "iteration": 1,
+    "printer": "Bambu Lab P1S 0.4 nozzle",
+    "material": "PLA",
+    "updated_at": "2026-10-16T22:56:22+00:00",
+    "defect": "layer_shift"
+  },
+  {
+    "id": "b1a1bdae50",
+    "name": "Bridge test",
+    "state": "done",
+    "outcome": "fixed",
+    "iteration": 2,
+    "printer": "Bambu Lab P1S 0.4 nozzle",
+    "material": "PLA",
+    "updated_at": "2026-10-16T22:56:21+00:00",
+    "defect": "bridge_sagging"
+  }
+]

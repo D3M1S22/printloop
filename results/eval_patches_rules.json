@@ -1,0 +1,145 @@
+{
+  "mode": "rules",
+  "cases": 8,
+  "correct": 7,
+  "preflight_ok": 7,
+  "rows": [
+    {
+      "case_id": "C0_baseline",
+      "defect": "none",
+      "expected": {},
+      "proposed": {},
+      "state": "done",
+      "preflight_ok": false,
+      "rejected_attempts": 0,
+      "correct": true,
+      "seconds": 0.38
+    },
+    {
+      "case_id": "C1_bridge_speed",
+      "defect": "bridge_sagging",
+      "expected": {
+        "bridge_speed": "down"
+      },
+      "proposed": {
+        "bridge_speed": [
+          100.0,
+          80.0
+        ]
+      },
+      "state": "awaiting_approval",
+      "preflight_ok": true,
+      "rejected_attempts": 0,
+      "correct": true,
+      "seconds": 0.75
+    },
+    {
+      "case_id": "C2_bridge_cooling",
+      "defect": "bridge_sagging",
+      "expected": {
+        "overhang_fan_speed": "up"
+      },
+      "proposed": {
+        "bridge_speed": [
+          50.0,
+          30.0
+        ]
+      },
+      "state": "awaiting_approval",
+      "preflight_ok": true,
+      "rejected_attempts": 0,
+      "correct": false,
+      "seconds": 0.71
+    },
+    {
+      "case_id": "C3_over_extrusion",
+      "defect": "over_extrusion",
+      "expected": {
+        "filament_flow_ratio": "down"
+      },
+      "proposed": {
+        "filament_flow_ratio": [
+          1.13,
+          1.09
+        ]
+      },
+      "state": "awaiting_approval",
+      "preflight_ok": true,
+      "rejected_attempts": 0,
+      "correct": true,
+      "seconds": 0.69
+    },
+    {
+      "case_id": "C4_under_extrusion",
+      "defect": "under_extrusion",
+      "expected": {
+        "filament_flow_ratio": "up"
+      },
+      "proposed": {
+        "filament_flow_ratio": [
+          0.8,
+          0.84
+        ]
+      },
+      "state": "awaiting_approval",
+      "preflight_ok": true,
+      "rejected_attempts": 0,
+      "correct": true,
+      "seconds": 0.73
+    },
+    {
+      "case_id": "C5_stringing_temp",
+      "defect": "stringing",
+      "expected": {
+        "nozzle_temperature": "down"
+      },
+      "proposed": {
+        "nozzle_temperature": [
+          240.0,
+          235.0
+        ]
+      },
+      "state": "awaiting_approval",
+      "preflight_ok": true,
+      "rejected_attempts": 0,
+      "correct": true,
+      "seconds": 0.73
+    },
+    {
+      "case_id": "C6_stringing_retraction",
+      "defect": "stringing",
+      "expected": {
+        "retraction_length": "up"
+      },
+      "proposed": {
+        "retraction_length": [
+          0.1,
+          0.2
+        ]
+      },
+      "state": "awaiting_approval",
+      "preflight_ok": true,
+      "rejected_attempts": 0,
+      "correct": true,
+      "seconds": 0.75
+    },
+    {
+      "case_id": "C7_first_layer_speed",
+      "defect": "first_layer",
+      "expected": {
+        "initial_layer_speed": "down"
+      },
+      "proposed": {
+        "initial_layer_speed": [
+          100.0,
+          90.0
+        ]
+      },
+      "state": "awaiting_approval",
+      "preflight_ok": true,
+      "rejected_attempts": 0,
+      "correct": true,
+      "seconds": 0.7
+    }
+  ]
+}

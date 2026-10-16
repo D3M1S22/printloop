@@ -1,0 +1,142 @@
+{
+  "id": "b1a1bdae50",
+  "name": "Bridge test",
+  "state": "ready",
+  "created_at": "2026-10-16T22:56:20+00:00",
+  "updated_at": "2026-10-16T22:56:20+00:00",
+  "printer": "Bambu Lab P1S 0.4 nozzle",
+  "material": "PLA",
+  "process": "0.20mm Standard @BBL X1C",
+  "max_iterations": 3,
+  "baseline": {
+    "sliced_3mf": "sliced.3mf",
+    "gcode": {
+      "layers": 85,
+      "filament_mm": 1449.3,
+      "features": {
+        "Bottom surface": {
+          "length_mm": 3059.0,
+          "moves": 303,
+          "speed_mm_s": 105.0,
+          "e_per_mm": 0.0291,
+          "fan_pct": 0.0
+        },
+        "Bridge": {
+          "length_mm": 4002.3,
+          "moves": 278,
+          "speed_mm_s": 100.0,
+          "e_per_mm": 0.04805,
+          "fan_pct": 100.0
+        },
+        "Floating vertical shell": {
+          "length_mm": 270.4,
+          "moves": 26,
+          "speed_mm_s": 100.0,
+          "e_per_mm": 0.02816,
+          "fan_pct": 99.0
+        },
+        "Inner wall": {
+          "length_mm": 6123.1,
+          "moves": 827,
+          "speed_mm_s": 39.53,
+          "e_per_mm": 0.0291,
+          "fan_pct": 99.0
+        },
+        "Internal solid infill": {
+          "length_mm": 15596.4,
+          "moves": 2216,
+          "speed_mm_s": 250.0,
+          "e_per_mm": 0.02912,
+          "fan_pct": 88.0
+        },
+        "Outer wall": {
+          "length_mm": 6783.8,
+          "moves": 828,
+          "speed_mm_s": 39.53,
+          "e_per_mm": 0.0291,
+          "fan_pct": 99.0
+        },
+        "Overhang wall": {
+          "length_mm": 174.4,
+          "moves": 4,
+          "speed_mm_s": 100.0,
+          "e_per_mm": 0.0291,
+          "fan_pct": 100.0
+        },
+        "Skirt": {
+          "length_mm": 173.4,
+          "moves": 17,
+          "speed_mm_s": 50.0,
+          "e_per_mm": 0.0291,
+          "fan_pct": 0.0
+        },
+        "Sparse infill": {
+          "length_mm": 6866.4,
+          "moves": 1866,
+          "speed_mm_s": 39.58,
+          "e_per_mm": 0.0291,
+          "fan_pct": 99.0
+        },
+        "Top surface": {
+          "length_mm": 4132.8,
+          "moves": 621,
+          "speed_mm_s": 200.0,
+          "e_per_mm": 0.02921,
+          "fan_pct": 83.0
+        }
+      },
+      "hotend_layer0": 220.0,
+      "hotend_layer1": 220.0,
+      "bed_layer0": 35.0,
+      "bed_layer1": 35.0,
+      "retraction_mm": 0.8,
+      "volumetric_p99_mm3_s": 20.58,
+      "header": {
+        "total layer number": "85",
+        "total filament length [mm]": "1449.26",
+        "total filament weight [g]": "4.39"
+      }
+    },
+    "print_time_s": 703.6259155273438,
+    "slice_elapsed_s": 0.31,
+    "filament_g": 4.39
+  },
+  "iterations": [
+    {
+      "n": 1,
+      "project": "original.3mf",
+      "source_gcode": "baseline/plate_1.gcode",
+      "photos": [
+        "iter_1/photos/front.jpg",
+        "iter_1/photos/macro.jpg"
+      ],
+      "note": "i ponti cedono al centro",
+      "diagnosis": null,
+      "proposal": null,
+      "validation": null,
+      "preflight": null,
+      "patched_project": null,
+      "sliced_3mf": null,
+      "slice": null,
+      "decision": null,
+      "rejected": [],
+      "photo_urls": [
+        "/api/cases/b1a1bdae50/files/iter_1/photos/front.jpg",
+        "/api/cases/b1a1bdae50/files/iter_1/photos/macro.jpg"
+      ],
+      "print_file_url": null,
+      "project_url": "/api/cases/b1a1bdae50/files/original.3mf"
+    }
+  ],
+  "rejected_keys": [],
+  "outcome": null,
+  "message": "",
+  "allowed_actions": [
+    "diagnose",
+    "upload_photos",
+    "stop"
+  ],
+  "llm_mode": "offline",
+  "latest_print_file_url": null,
+  "edit_options": []
+}

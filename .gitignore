@@ -1,0 +1,29 @@
+# Segreti (chiave vLLM, access code LAN della stampante)
+.env
+.env.*
+!.env.example
+
+# Dati: foto, frame camera, G-code e preset generati restano locali
+data/*
+!data/README.md
+runs/
+audit/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+.next/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store

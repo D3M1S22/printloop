@@ -1,0 +1,225 @@
+[
+  {
+    "ts": "2026-10-16T22:56:20+00:00",
+    "case_id": "b1a1bdae50",
+    "iteration": 1,
+    "state": "awaiting_photos",
+    "event": "case_created",
+    "actor": "system",
+    "project": "bridge_test.3mf",
+    "printer": "Bambu Lab P1S 0.4 nozzle",
+    "material": "PLA",
+    "slice": {
+      "sliced_3mf": "sliced.3mf",
+      "gcode": "plate_1.gcode",
+      "print_time_s": 703.6259155273438,
+      "slice_elapsed_s": 0.31
+    }
+  },
+  {
+    "ts": "2026-10-16T22:56:20+00:00",
+    "case_id": "b1a1bdae50",
+    "iteration": 1,
+    "state": "ready",
+    "event": "photos_added",
+    "actor": "operator",
+    "photos": [
+      "iter_1/photos/front.jpg",
+      "iter_1/photos/macro.jpg"
+    ],
+    "note": "i ponti cedono al centro"
+  },
+  {
+    "ts": "2026-10-16T22:56:20+00:00",
+    "case_id": "b1a1bdae50",
+    "iteration": 1,
+    "state": "ready",
+    "event": "diagnosed",
+    "actor": "operator",
+    "diagnosis": {
+      "findings": [
+        {
+          "defect": "bridge_sagging",
+          "severity": 3,
+          "confidence": 1.0,
+          "evidence": [
+            {
+              "photo": "iter_1/photos/front.jpg",
+              "description": "indicato dall'operatore"
+            },
+            {
+              "photo": "iter_1/photos/macro.jpg",
+              "description": "indicato dall'operatore"
+            }
+          ],
+          "location": ""
+        }
+      ],
+      "primary": "bridge_sagging",
+      "needs_more_info": false,
+      "question_for_operator": "",
+      "source": "operator",
+      "model": null,
+      "latency_ms": null,
+      "note": "i ponti cedono al centro",
+      "at": "2026-10-16T22:56:20+00:00"
+    }
+  },
+  {
+    "ts": "2026-10-16T22:56:21+00:00",
+    "case_id": "b1a1bdae50",
+    "iteration": 1,
+    "state": "awaiting_approval",
+    "event": "proposed",
+    "actor": "system",
+    "proposal": {
+      "defect": "bridge_sagging",
+      "changes": [
+        {
+          "key": "bridge_speed",
+          "before": 100.0,
+          "after": 80.0,
+          "reason": "Bridge che cedono: ridurre velocità dei bridge di un passo (100 → 80 mm/s)",
+          "real": {
+            "bridge_speed": 80.0
+          },
+          "companion": false,
+          "label": "Velocità dei bridge",
+          "unit": "mm/s"
+        }
+      ],
+      "rationale": "Primo candidato utilizzabile della knowledge base per 'Bridge che cedono'.",
+      "expected_effect": "riduzione di: bridge che cedono",
+      "source": "rules",
+      "model": null,
+      "latency_ms": null,
+      "rejected_attempts": [],
+      "at": "2026-10-16T22:56:20+00:00"
+    },
+    "preflight_ok": true,
+    "warnings": []
+  },
+  {
+    "ts": "2026-10-16T22:56:21+00:00",
+    "case_id": "b1a1bdae50",
+    "iteration": 1,
+    "state": "diagnosed",
+    "event": "rejected",
+    "actor": "operator",
+    "reason": "prima provo con la ventola",
+    "keys": [
+      "bridge_speed"
+    ]
+  },
+  {
+    "ts": "2026-10-16T22:56:21+00:00",
+    "case_id": "b1a1bdae50",
+    "iteration": 1,
+    "state": "awaiting_approval",
+    "event": "proposed",
+    "actor": "system",
+    "proposal": {
+      "defect": "bridge_sagging",
+      "changes": [
+        {
+          "key": "bridge_flow",
+          "before": 1.0,
+          "after": 0.95,
+          "reason": "Bridge che cedono: ridurre flusso dei bridge di un passo (1 → 0.95 x)",
+          "real": {
+            "bridge_flow": 0.95
+          },
+          "companion": false,
+          "label": "Flusso dei bridge",
+          "unit": "x"
+        }
+      ],
+      "rationale": "Primo candidato utilizzabile della knowledge base per 'Bridge che cedono'.",
+      "expected_effect": "riduzione di: bridge che cedono",
+      "source": "rules",
+      "model": null,
+      "latency_ms": null,
+      "rejected_attempts": [],
+      "at": "2026-10-16T22:56:21+00:00"
+    },
+    "preflight_ok": true,
+    "warnings": []
+  },
+  {
+    "ts": "2026-10-16T22:56:21+00:00",
+    "case_id": "b1a1bdae50",
+    "iteration": 1,
+    "state": "awaiting_approval",
+    "event": "proposal_edited",
+    "actor": "operator",
+    "edits": {
+      "bridge_flow": 0.9
+    },
+    "preflight_ok": true,
+    "warnings": []
+  },
+  {
+    "ts": "2026-10-16T22:56:21+00:00",
+    "case_id": "b1a1bdae50",
+    "iteration": 1,
+    "state": "awaiting_approval",
+    "event": "approved",
+    "actor": "operator",
+    "reason": "ok",
+    "override_preflight": false,
+    "print_file": "iter_1/edit_1/slice/sliced.3mf"
+  },
+  {
+    "ts": "2026-10-16T22:56:21+00:00",
+    "case_id": "b1a1bdae50",
+    "iteration": 2,
+    "state": "ready",
+    "event": "photos_added",
+    "actor": "operator",
+    "photos": [
+      "iter_2/photos/front.jpg"
+    ],
+    "note": ""
+  },
+  {
+    "ts": "2026-10-16T22:56:21+00:00",
+    "case_id": "b1a1bdae50",
+    "iteration": 2,
+    "state": "ready",
+    "event": "diagnosed",
+    "actor": "operator",
+    "diagnosis": {
+      "findings": [
+        {
+          "defect": "bridge_sagging",
+          "severity": 1,
+          "confidence": 1.0,
+          "evidence": [
+            {
+              "photo": "iter_2/photos/front.jpg",
+              "description": "indicato dall'operatore"
+            }
+          ],
+          "location": ""
+        }
+      ],
+      "primary": "bridge_sagging",
+      "needs_more_info": false,
+      "question_for_operator": "",
+      "source": "operator",
+      "model": null,
+      "latency_ms": null,
+      "note": "",
+      "at": "2026-10-16T22:56:21+00:00"
+    }
+  },
+  {
+    "ts": "2026-10-16T22:56:21+00:00",
+    "case_id": "b1a1bdae50",
+    "iteration": 2,
+    "state": "done",
+    "event": "done",
+    "actor": "system",
+    "outcome": "fixed"
+  }
+]

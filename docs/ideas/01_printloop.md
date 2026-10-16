@@ -3,7 +3,7 @@
 > **Nome provvisorio.**
 > **Track di riferimento:** Track 1: Intelligent Industry
 > **Target premi:** AMD Main Prize + Google Prize (Gemma 4) + Vibe Generation (workflow ibrido Uomo+AI)
-> **Stato:** concept validato a tavolino, in attesa degli spike tecnici (sezione 9)
+> **Stato:** concept originale. Rivisto il 16/10/2026 con le fonti ufficiali: vedi [`../printloop/00_OVERVIEW.md`](../printloop/00_OVERVIEW.md) (§6 per le correzioni) e gli spike aggiornati in [`../printloop/04_PLAN_DECISIONS_RISKS.md`](../printloop/04_PLAN_DECISIONS_RISKS.md)
 
 ---
 
