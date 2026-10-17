@@ -141,12 +141,18 @@ def write_patched(src: str | Path, dst: str | Path, settings: dict) -> Path:
     """Copia il 3MF sostituendo le impostazioni e togliendo G-code e anteprime dello slicing precedente."""
     dst = Path(dst)
     dst.parent.mkdir(parents=True, exist_ok=True)
+    # Sanitize known keys that OrcaSlicer rejects if negative (BambuStudio default -1)
+    sanitized = dict(settings)
+    for key in ("raft_first_layer_expansion", "tree_support_wall_count"):
+        val = sanitized.get(key)
+        if val in (-1, "-1", -1.0):
+            sanitized[key] = "0"
     with zipfile.ZipFile(src) as zin, zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED) as zout:
         for item in zin.infolist():
             name = item.filename
             if name.startswith(_STALE_PREFIXES) and name not in _STALE_KEEP:
                 continue
-            data = json.dumps(settings, indent=4).encode() if name == PROJECT_SETTINGS else zin.read(name)
+            data = json.dumps(sanitized, indent=4).encode() if name == PROJECT_SETTINGS else zin.read(name)
             zout.writestr(item, data)
     return dst
 

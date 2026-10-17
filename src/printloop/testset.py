@@ -75,8 +75,13 @@ def write_coupon_stl(path: Path) -> Path:
 def profiles_dir() -> Path:
     """Cartella dei preset di sistema BBL dello slicer installato."""
     binary = slicer_bin()
-    candidates = [Path("/opt/BambuStudio/resources/profiles/BBL"), Path("/usr/share/BambuStudio/profiles/BBL"),
-                  Path("/opt/OrcaSlicer/resources/profiles/BBL"), Path("/usr/share/OrcaSlicer/profiles/BBL")]
+    candidates = [
+        Path("/var/lib/flatpak/app/com.orcaslicer.OrcaSlicer/current/active/files/share/OrcaSlicer/profiles/BBL"),
+        Path("/opt/BambuStudio/resources/profiles/BBL"),
+        Path("/usr/share/BambuStudio/profiles/BBL"),
+        Path("/opt/OrcaSlicer/resources/profiles/BBL"),
+        Path("/usr/share/OrcaSlicer/profiles/BBL"),
+    ]
     if binary:
         real = Path(binary).resolve()
         candidates.insert(0, real.parent.parent / "resources" / "profiles" / "BBL")

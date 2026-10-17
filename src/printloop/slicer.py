@@ -6,6 +6,7 @@ Verificato su BambuStudio 2.8.2 headless (nessun display necessario): con `--out
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import tempfile
 import time
@@ -20,6 +21,28 @@ class SlicerError(RuntimeError):
     pass
 
 
+def _parse_gcode_time(gcode_path: Path) -> float | None:
+    """Ricava il tempo stimato (secondi) dall'intestazione del G-code se result.json non lo riporta."""
+    try:
+        with open(gcode_path, encoding="utf-8", errors="replace") as fh:
+            for _ in range(120):
+                line = fh.readline()
+                if not line:
+                    break
+                m = re.search(r"total estimated time\s*:\s*([^;\n\r]+)", line)
+                if m:
+                    raw = m.group(1).strip()
+                    dur = re.search(r"(?:(\d+)\s*d\s*)?(?:(\d+)\s*h\s*)?(?:(\d+)\s*m\s*)?(?:(\d+)\s*s)?", raw)
+                    if dur:
+                        d, h, m_val, s = dur.groups()
+                        tot = int(d or 0) * 86400 + int(h or 0) * 3600 + int(m_val or 0) * 60 + int(s or 0)
+                        if tot > 0:
+                            return float(tot)
+    except OSError:
+        pass
+    return None
+
+
 @dataclass
 class SliceResult:
     project: Path       # 3MF in ingresso
@@ -31,7 +54,12 @@ class SliceResult:
     @property
     def print_time_s(self) -> float | None:
         plates = self.result.get("sliced_plates") or [{}]
-        return plates[0].get("total_predication")
+        pred = plates[0].get("total_predication")
+        if pred is not None and pred > 0:
+            return float(pred)
+        if self.gcode and Path(self.gcode).exists():
+            return _parse_gcode_time(Path(self.gcode))
+        return None
 
     def summary(self) -> dict:
         return {"sliced_3mf": self.sliced_3mf.name, "gcode": self.gcode.name,

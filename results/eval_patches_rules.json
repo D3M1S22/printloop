@@ -13,7 +13,7 @@
       "preflight_ok": false,
       "rejected_attempts": 0,
       "correct": true,
-      "seconds": 0.38
+      "seconds": 0.96
     },
     {
       "case_id": "C1_bridge_speed",
@@ -31,7 +31,7 @@
       "preflight_ok": true,
       "rejected_attempts": 0,
       "correct": true,
-      "seconds": 0.75
+      "seconds": 1.96
     },
     {
       "case_id": "C2_bridge_cooling",
@@ -49,7 +49,7 @@
       "preflight_ok": true,
       "rejected_attempts": 0,
       "correct": false,
-      "seconds": 0.71
+      "seconds": 1.97
     },
     {
       "case_id": "C3_over_extrusion",
@@ -67,7 +67,7 @@
       "preflight_ok": true,
       "rejected_attempts": 0,
       "correct": true,
-      "seconds": 0.69
+      "seconds": 1.96
     },
     {
       "case_id": "C4_under_extrusion",
@@ -85,7 +85,7 @@
       "preflight_ok": true,
       "rejected_attempts": 0,
       "correct": true,
-      "seconds": 0.73
+      "seconds": 1.91
     },
     {
       "case_id": "C5_stringing_temp",
@@ -103,7 +103,7 @@
       "preflight_ok": true,
       "rejected_attempts": 0,
       "correct": true,
-      "seconds": 0.73
+      "seconds": 1.99
     },
     {
       "case_id": "C6_stringing_retraction",
@@ -121,7 +121,7 @@
       "preflight_ok": true,
       "rejected_attempts": 0,
       "correct": true,
-      "seconds": 0.75
+      "seconds": 1.98
     },
     {
       "case_id": "C7_first_layer_speed",
@@ -139,7 +139,7 @@
       "preflight_ok": true,
       "rejected_attempts": 0,
       "correct": true,
-      "seconds": 0.7
+      "seconds": 1.94
     }
   ]
 }
