@@ -46,7 +46,8 @@ Gemma on the AMD MI300X droplet: `infra/serve_gemma_vision.sh`, then `LLM_BASE_U
 ├── tests/                # unit + integration with the slicer + faked LLM path
 ├── examples/coupon/      # 3MF project of the test coupon (our model)
 ├── web/                  # React + Vite + TypeScript UI (fixtures/ = real API replies)
-├── infra/                # Gemma 4 vision on vLLM (MI300X) and on llama.cpp (local)
+├── infra/                # Gemma 4 vision on vLLM (MI300X) and on llama.cpp (local), Mode 1 detector (serve_vision_e4b.sh)
+├── finetune/             # extra component, run separately: LoRA fine-tuning of Gemma 4 E4B for Mode 1 (AMD MI300X)
 ├── scripts/              # fixture export, OrcaSlicer Flatpak wrapper
 ├── results/              # versioned evaluations
 ├── docs/                 # documentation (index: docs/README.md)
@@ -59,6 +60,7 @@ Gemma on the AMD MI300X droplet: `infra/serve_gemma_vision.sh`, then `LLM_BASE_U
 - [06_IMPLEMENTATION_STATUS](docs/printloop/06_IMPLEMENTATION_STATUS.md): what works, results, next steps
 - [05_API](docs/printloop/05_API.md): contract for the frontend
 - [03_ARCHITECTURE](docs/printloop/03_ARCHITECTURE.md): components and pre-flight
+- [07_VISION_MODEL](docs/printloop/07_VISION_MODEL.md): fine-tuned Gemma 4 E4B defect detector for Mode 1 (93.8% on the test split vs 18.3% zero-shot), design of Mode 1, options for Mode 2
 
 ## Security
 

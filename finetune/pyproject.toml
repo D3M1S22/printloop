@@ -1,0 +1,39 @@
+[project]
+name = "printloop-finetune"
+version = "0.1.0"
+description = "PrintLoop extra component: LoRA fine-tuning of Gemma 4 E4B for FDM defect detection (Mode 1), ready for AMD Instinct MI300X"
+requires-python = ">=3.10"
+# PyTorch is NOT listed: it comes from the ROCm image (rocm/pytorch) or from the platform wheel index.
+dependencies = [
+    "transformers==5.5.4",          # >= 5.5.2: Gemma 4 E2B/E4B KV sharing with use_cache=False (PR #45312)
+    "peft==0.21.2",
+    "accelerate==1.15.0",
+    "datasets==4.8.5",
+    "timm==1.0.30",
+    "safetensors>=0.8",
+    "sentencepiece>=0.2",
+    "protobuf>=5",
+    "huggingface-hub>=1.0",
+    "tensorboard>=2.18",
+    "pillow>=11",
+    "pyyaml>=6",
+    "requests>=2.32",
+    "imagehash>=4.3",
+    "pyarrow>=17",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+printloop-ft = "fdmft.cli:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

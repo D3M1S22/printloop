@@ -1,0 +1,36 @@
+# LoRA fine-tuning of Gemma 4 E4B (vision + language) on one AMD Instinct MI300X (192 GB HBM3, bf16).
+# With 192 GB there is no need for 4-bit QLoRA: LoRA on the full bf16 weights, so the adapter merges back
+# exactly into the weights it was trained on (no quantization mismatch at export time).
+run_id: e4b_lora_v1
+build_id: v1
+model: google/gemma-4-E4B-it          # BF16 weights, Apache-2.0
+dtype: bfloat16
+attn_implementation: sdpa             # PyTorch SDPA (flash/mem-efficient kernels through AOTriton on ROCm)
+max_soft_tokens: 280                  # image token budget: a 1280x720 P1S frame becomes 1056x576
+max_new_tokens: 64
+seed: 3407
+
+lora:
+  r: 16
+  alpha: 16
+  dropout: 0.0
+  vision: true                        # also adapt the vision encoder (the gap of the small models is perceptual)
+
+train:
+  epochs: 2
+  batch_size: 8                       # effective batch 8, as in the reference run
+  grad_accum: 1
+  lr: 1.0e-4
+  warmup_steps: 50
+  weight_decay: 0.001
+  max_grad_norm: 0.3
+  optim: adamw_torch_fused
+  gradient_checkpointing: false       # 192 GB: not needed, faster without
+  save_steps: 200
+  eval_steps: 400
+  logging_steps: 10
+  workers: 8
+
+val_limit: 200        # validation loss on a stratified subset
+test_limit: 1000      # final generative evaluation (fine-tuned; add --eval-base for the zero-shot baseline)
+eval_batch_size: 16

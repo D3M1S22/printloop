@@ -1,0 +1,99 @@
+# Mode 1 taxonomy and the mapping from the labels of the public datasets (docs/printloop/07_VISION_MODEL.md §3).
+# Codes and descriptions follow src/printloop/taxonomy.py. Classes marked `proposed: true` do not exist in the
+# PrintLoop app yet (see 07_VISION_MODEL.md §8). Descriptions are in English because they go into the prompt.
+
+version: 1
+
+classes:
+  spaghetti:
+    description: "A tangle of loose extruded filament instead of the part; the print failed and continued in mid-air."
+  stringing:
+    description: "Thin hair-like strands or webs of filament between separate parts or across travel gaps."
+  blobs:
+    proposed: true
+    description: "Small zits, blobs or pimples of plastic on the surface of walls."
+  warping:
+    description: "Corners or edges lifted from the bed, bottom not flat, part detached during the print."
+  layer_separation:
+    proposed: true
+    description: "Cracks or gaps between layers; layers split apart or delaminate."
+  layer_shift:
+    description: "Layers abruptly offset horizontally relative to the ones below, a step in the part."
+  under_extrusion:
+    description: "Gaps between lines, thin or missing walls, porous or weak top surfaces, visible infill through skin."
+  over_extrusion:
+    description: "Blobby, bulging or rough walls, ridges on top surfaces, dimensions larger than intended."
+  first_layer:
+    description: "First layer problems: lines not fused, gaps, rough or squished bottom, poor adhesion."
+  bridge_sagging:
+    description: "Lines spanning unsupported gaps droop, sag, break or curl downwards under a bridge."
+  overhang_curling:
+    description: "Edges of angled overhangs curl upwards, look rough or drooped on the underside."
+  none:
+    description: "No defect of the classes above is visible."
+  other:
+    description: "A defect is visible but it does not fit any class above."
+
+# Canonical order of the defects in the output (lists in the JSON are always sorted like this). Failures that
+# justify pausing a print come first, so the first item is also the most urgent one (`primary`).
+order: [spaghetti, warping, layer_shift, layer_separation, bridge_sagging, overhang_curling,
+        stringing, blobs, under_extrusion, over_extrusion, first_layer, other]
+
+# Source label (lower case, spaces and dashes as "_") -> class.
+# `review` = needs a decision before training (excluded from the build); `ignore` = object label, not a defect.
+label_map:
+  spaghetti: spaghetti
+  spagheti: spaghetti
+  detached_filament: spaghetti
+  stringing: stringing
+  sringing: stringing
+  zits: blobs
+  blobs: blobs
+  blobs_and_zits: blobs
+  warping: warping
+  off_platform: warping
+  cracking: layer_separation
+  crack: layer_separation
+  cracks: layer_separation
+  layer_separation: layer_separation
+  detached_layer: layer_separation
+  layer_shifting: layer_shift
+  layer_shift: layer_shift
+  under_extrusion: under_extrusion
+  underextrusion: under_extrusion
+  under_extrude: under_extrusion
+  nozzle_clog: under_extrusion      # visible as missing or thin extrusion
+  over_extrusion: over_extrusion
+  over_extrude: over_extrusion
+  first_layer_defects: first_layer
+  bed_not_stick: first_layer
+  bed_adhesion: first_layer
+  blob_of_death: other              # no class of its own yet (proposal in 07_VISION_MODEL.md §8)
+  z_banding: other
+  good: none
+  ok: none
+  normal: none
+  optimal: none
+  optimal_flow_ratio: none
+  no_defect: none
+  non_defected: none
+  no_defected: none
+  defected: review
+  no_support: review
+  leg_broken: review
+  no_bottom: review
+  error_extrusion: review
+  layer_defect: review
+  poor_surface_quality: review
+  failure: review
+  bad: review
+  unlabeled: review
+  z: review
+  part: ignore
+  extrusor: ignore
+  error: review
+
+licenses:
+  allowed_for_training: [MIT, Apache-2.0, CC0-1.0, CC-BY-4.0]
+  eval_only: [CC-BY-SA-4.0, unknown]
+  rejected: [GPL-2.0, CC-BY-NC-4.0, CC-BY-NC-SA-4.0]

@@ -1,0 +1,87 @@
+# Public data sources (docs/printloop/07_VISION_MODEL.md §2).
+# use: train = allowed in training · eval = internal evaluation only (licence not allowed for published weights).
+# license: as declared by the source; for Roboflow it is re-read from the API at download time and that wins.
+# parser: how labels and groups are derived from the files (src/fdmft/sources.py).
+
+sources:
+  kaggle_wengmhu:
+    kind: kaggle
+    ref: wengmhu/fdm-3d-printing-defect-dataset
+    license: MIT
+    use: train
+    parser: folder_class            # label = folder name
+    exclude: ["*_aug.*"]            # augmented copies shipped with the dataset
+    citation: "Hu, W., Chen, C., Su, S. et al. Real-time defect detection for FFF 3D printing using lightweight model deployment. Int J Adv Manuf Technol 134, 4871-4885 (2024)."
+
+  kaggle_nimbus200:
+    kind: kaggle
+    ref: nimbus200/3d-printing-errors
+    license: Apache-2.0
+    use: train
+    parser: nimbus200               # CSV with class, layer, shape and recording
+    citation: "Hagen-Beyer, N. FDM_error_detection, https://github.com/NilsHagenBeyer/FDM_error_detection"
+
+  kaggle_mmandrew:
+    kind: kaggle
+    ref: mmandrew/fdm-extrusion-calibration-dataset
+    license: MIT
+    use: train
+    parser: mmandrew                # <id>_<100|010|001>.png = under / optimal / over
+
+  roboflow_3dpf:
+    kind: roboflow
+    ref: 3d-printing-failure/3d-printing-failure
+    license: CC-BY-4.0
+    use: train
+    parser: coco
+
+  roboflow_spaghetti3d:
+    kind: roboflow
+    ref: 3d-printing-failure/spaghetti-3d
+    license: CC-BY-4.0
+    use: train
+    parser: coco
+
+  roboflow_atco:
+    kind: roboflow
+    ref: atco/3d-printing-error
+    license: MIT
+    use: train
+    parser: coco
+
+  roboflow_jkfnh:
+    kind: roboflow
+    ref: project-jkfnh/defects-classification-in-3d-printing-fwsu3
+    license: CC-BY-4.0
+    use: train
+    parser: folder_class            # classification project: "folder" export
+    export_format: folder
+
+  roboflow_hnnm:
+    kind: roboflow
+    ref: hnnm/3d-printing-defects-eavhn
+    license: CC-BY-4.0
+    use: train
+    parser: coco
+
+  # Evaluation only (licence not allowed for training)
+  kaggle_justin900429:
+    kind: kaggle
+    ref: justin900429/3d-printer-defected-dataset
+    license: CC-BY-SA-4.0
+    use: eval
+    parser: filename_prefix         # defected/<type>_<n>.jpg, no_defected/...
+
+  kaggle_totolvroum:
+    kind: kaggle
+    ref: totolvroum/3d-printing-defects
+    license: unknown
+    use: eval
+    parser: folder_class
+
+  hf_masamsa_failure:
+    kind: huggingface
+    ref: Masamsa/3d-print-failure-detection
+    license: unknown
+    use: eval
+    parser: hf_binary               # parquet with image + label (normal / failure)

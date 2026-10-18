@@ -117,3 +117,5 @@ Fix: `project.mark_different()` declares every key patched in the case, includin
 3. `eval patches --mode llm`: rules vs Gemma (C2 and the C5/C6 pair).
 4. `printloop.bench` on the MI300X: p50/p95 latency and diagnoses/min at concurrency 1/4/8 → AMD Evidence section.
 5. Video (the UI already carries the demo, offline too), deck.
+6. **Mode 1** with the fine-tuned E4B detector: design, contract, thresholds and checklist in [07_VISION_MODEL](07_VISION_MODEL.md) §7 and §10. Optionally, Mode 2 option B (E4B classifies, 26B reasons) behind a flag and `eval diagnosis` A vs B ([07](07_VISION_MODEL.md) §8).
+7. **Fine-tuning on the MI300X** (`finetune/`, [README](../../finetune/README.md)): `bash finetune/scripts/mi300x.sh all`, then keep `finetune/results/<run>/train_metrics.json` for the AMD Evidence section.

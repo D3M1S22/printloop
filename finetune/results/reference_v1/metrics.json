@@ -1,0 +1,502 @@
+{
+ "model": "Gemma 4 E4B-it + LoRA r16 (vision + language), adapter DanyDeggio/Gemma_4_E4B_3dPrint",
+ "prompt_version": "m1-v1",
+ "build_id": "v1",
+ "decoding": "greedy, max_new_tokens 64",
+ "test": "1,000 images of the v1 test split, stratified by primary class (deterministic)",
+ "pytorch_finetuned": {
+  "n": 1000,
+  "valid_json": 1.0,
+  "exact_match": 0.938,
+  "primary_accuracy": 0.938,
+  "macro_f1": 0.937,
+  "binary": {
+   "false_positive_rate_on_none": 0.0476,
+   "defect_recall": 0.9966,
+   "none_images": 105,
+   "defect_images": 895
+  },
+  "per_class": {
+   "spaghetti": {
+    "precision": 0.9703,
+    "recall": 0.9423,
+    "f1": 0.9561,
+    "support": 104
+   },
+   "warping": {
+    "precision": 0.899,
+    "recall": 0.9175,
+    "f1": 0.9082,
+    "support": 97
+   },
+   "layer_shift": {
+    "precision": 1.0,
+    "recall": 0.9388,
+    "f1": 0.9684,
+    "support": 49
+   },
+   "layer_separation": {
+    "precision": 0.9231,
+    "recall": 0.9412,
+    "f1": 0.932,
+    "support": 51
+   },
+   "bridge_sagging": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "support": 0
+   },
+   "overhang_curling": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "support": 0
+   },
+   "stringing": {
+    "precision": 0.9519,
+    "recall": 0.9519,
+    "f1": 0.9519,
+    "support": 104
+   },
+   "blobs": {
+    "precision": 0.96,
+    "recall": 0.9505,
+    "f1": 0.9552,
+    "support": 101
+   },
+   "under_extrusion": {
+    "precision": 0.8879,
+    "recall": 0.9135,
+    "f1": 0.9005,
+    "support": 104
+   },
+   "over_extrusion": {
+    "precision": 0.9684,
+    "recall": 0.8846,
+    "f1": 0.9246,
+    "support": 104
+   },
+   "first_layer": {
+    "precision": 0.925,
+    "recall": 0.961,
+    "f1": 0.9427,
+    "support": 77
+   },
+   "other": {
+    "precision": 0.8938,
+    "recall": 0.9712,
+    "f1": 0.9309,
+    "support": 104
+   }
+  },
+  "by_source": {
+   "kaggle_mmandrew": {
+    "n": 61,
+    "valid_json": 1.0,
+    "exact_match": 0.9672,
+    "primary_accuracy": 0.9672,
+    "macro_f1": 0.9783
+   },
+   "kaggle_nimbus200": {
+    "n": 139,
+    "valid_json": 1.0,
+    "exact_match": 0.9281,
+    "primary_accuracy": 0.9281,
+    "macro_f1": 0.9495
+   },
+   "kaggle_wengmhu": {
+    "n": 33,
+    "valid_json": 1.0,
+    "exact_match": 1.0,
+    "primary_accuracy": 1.0,
+    "macro_f1": 1.0
+   },
+   "roboflow_3dpf": {
+    "n": 29,
+    "valid_json": 1.0,
+    "exact_match": 0.931,
+    "primary_accuracy": 0.931,
+    "macro_f1": 0.0
+   },
+   "roboflow_atco": {
+    "n": 38,
+    "valid_json": 1.0,
+    "exact_match": 0.9474,
+    "primary_accuracy": 0.9474,
+    "macro_f1": 0.0
+   },
+   "roboflow_hnnm": {
+    "n": 10,
+    "valid_json": 1.0,
+    "exact_match": 0.9,
+    "primary_accuracy": 0.9,
+    "macro_f1": 0.0
+   },
+   "roboflow_jkfnh": {
+    "n": 667,
+    "valid_json": 1.0,
+    "exact_match": 0.934,
+    "primary_accuracy": 0.934,
+    "macro_f1": 0.9345
+   },
+   "roboflow_spaghetti3d": {
+    "n": 23,
+    "valid_json": 1.0,
+    "exact_match": 0.9565,
+    "primary_accuracy": 0.9565,
+    "macro_f1": 0.9778
+   }
+  }
+ },
+ "pytorch_base_zero_shot": {
+  "n": 1000,
+  "valid_json": 1.0,
+  "exact_match": 0.161,
+  "primary_accuracy": 0.183,
+  "macro_f1": 0.1473,
+  "binary": {
+   "false_positive_rate_on_none": 0.4762,
+   "defect_recall": 0.5676,
+   "none_images": 105,
+   "defect_images": 895
+  },
+  "per_class": {
+   "spaghetti": {
+    "precision": 0.6279,
+    "recall": 0.5192,
+    "f1": 0.5684,
+    "support": 104
+   },
+   "warping": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "support": 97
+   },
+   "layer_shift": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "support": 49
+   },
+   "layer_separation": {
+    "precision": 0.0724,
+    "recall": 0.2157,
+    "f1": 0.1084,
+    "support": 51
+   },
+   "bridge_sagging": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "support": 0
+   },
+   "overhang_curling": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "support": 0
+   },
+   "stringing": {
+    "precision": 0.3034,
+    "recall": 0.5192,
+    "f1": 0.383,
+    "support": 104
+   },
+   "blobs": {
+    "precision": 0.8182,
+    "recall": 0.1782,
+    "f1": 0.2927,
+    "support": 101
+   },
+   "under_extrusion": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "support": 104
+   },
+   "over_extrusion": {
+    "precision": 0.6667,
+    "recall": 0.0192,
+    "f1": 0.0374,
+    "support": 104
+   },
+   "first_layer": {
+    "precision": 0.0968,
+    "recall": 0.039,
+    "f1": 0.0556,
+    "support": 77
+   },
+   "other": {
+    "precision": 0.0219,
+    "recall": 0.0385,
+    "f1": 0.0279,
+    "support": 104
+   }
+  },
+  "by_source": {
+   "kaggle_mmandrew": {
+    "n": 61,
+    "valid_json": 1.0,
+    "exact_match": 0.2623,
+    "primary_accuracy": 0.2623,
+    "macro_f1": 0.0
+   },
+   "kaggle_nimbus200": {
+    "n": 139,
+    "valid_json": 1.0,
+    "exact_match": 0.2302,
+    "primary_accuracy": 0.2302,
+    "macro_f1": 0.4865
+   },
+   "kaggle_wengmhu": {
+    "n": 33,
+    "valid_json": 1.0,
+    "exact_match": 0.0,
+    "primary_accuracy": 0.0,
+    "macro_f1": 0.0
+   },
+   "roboflow_3dpf": {
+    "n": 29,
+    "valid_json": 1.0,
+    "exact_match": 0.1724,
+    "primary_accuracy": 0.2414,
+    "macro_f1": 0.0
+   },
+   "roboflow_atco": {
+    "n": 38,
+    "valid_json": 1.0,
+    "exact_match": 0.3947,
+    "primary_accuracy": 0.3947,
+    "macro_f1": 0.0
+   },
+   "roboflow_hnnm": {
+    "n": 10,
+    "valid_json": 1.0,
+    "exact_match": 0.3,
+    "primary_accuracy": 0.4,
+    "macro_f1": 0.0
+   },
+   "roboflow_jkfnh": {
+    "n": 667,
+    "valid_json": 1.0,
+    "exact_match": 0.1214,
+    "primary_accuracy": 0.1439,
+    "macro_f1": 0.1483
+   },
+   "roboflow_spaghetti3d": {
+    "n": 23,
+    "valid_json": 1.0,
+    "exact_match": 0.3913,
+    "primary_accuracy": 0.5652,
+    "macro_f1": 0.7222
+   }
+  }
+ },
+ "llama_cpp_gguf_q8_0": {
+  "metrics": {
+   "n": 1000,
+   "valid_json": 0.999,
+   "exact_match": 0.909,
+   "primary_accuracy": 0.909,
+   "macro_f1": 0.9109,
+   "binary": {
+    "false_positive_rate_on_none": 0.1333,
+    "defect_recall": 0.9944,
+    "none_images": 105,
+    "defect_images": 895
+   },
+   "per_class": {
+    "spaghetti": {
+     "precision": 0.932,
+     "recall": 0.9231,
+     "f1": 0.9275,
+     "support": 104
+    },
+    "warping": {
+     "precision": 0.9263,
+     "recall": 0.9072,
+     "f1": 0.9167,
+     "support": 97
+    },
+    "layer_shift": {
+     "precision": 1.0,
+     "recall": 0.9592,
+     "f1": 0.9792,
+     "support": 49
+    },
+    "layer_separation": {
+     "precision": 0.8333,
+     "recall": 0.8824,
+     "f1": 0.8571,
+     "support": 51
+    },
+    "bridge_sagging": {
+     "precision": 0.0,
+     "recall": 0.0,
+     "f1": 0.0,
+     "support": 0
+    },
+    "overhang_curling": {
+     "precision": 0.0,
+     "recall": 0.0,
+     "f1": 0.0,
+     "support": 0
+    },
+    "stringing": {
+     "precision": 0.8761,
+     "recall": 0.9519,
+     "f1": 0.9124,
+     "support": 104
+    },
+    "blobs": {
+     "precision": 0.9691,
+     "recall": 0.9307,
+     "f1": 0.9495,
+     "support": 101
+    },
+    "under_extrusion": {
+     "precision": 0.8103,
+     "recall": 0.9038,
+     "f1": 0.8545,
+     "support": 104
+    },
+    "over_extrusion": {
+     "precision": 0.9271,
+     "recall": 0.8558,
+     "f1": 0.89,
+     "support": 104
+    },
+    "first_layer": {
+     "precision": 0.9437,
+     "recall": 0.8701,
+     "f1": 0.9054,
+     "support": 77
+    },
+    "other": {
+     "precision": 0.8839,
+     "recall": 0.9519,
+     "f1": 0.9167,
+     "support": 104
+    }
+   }
+  },
+  "latency_ms": {
+   "p50": 750,
+   "p95": 1041
+  },
+  "agreement_with_pytorch_primary": 0.928
+ },
+ "llama_cpp_gguf_q4_k_m": {
+  "metrics": {
+   "n": 1000,
+   "valid_json": 0.994,
+   "exact_match": 0.863,
+   "primary_accuracy": 0.863,
+   "macro_f1": 0.8693,
+   "binary": {
+    "false_positive_rate_on_none": 0.2286,
+    "defect_recall": 0.9933,
+    "none_images": 105,
+    "defect_images": 895
+   },
+   "per_class": {
+    "spaghetti": {
+     "precision": 0.9505,
+     "recall": 0.9231,
+     "f1": 0.9366,
+     "support": 104
+    },
+    "warping": {
+     "precision": 0.8966,
+     "recall": 0.8041,
+     "f1": 0.8478,
+     "support": 97
+    },
+    "layer_shift": {
+     "precision": 1.0,
+     "recall": 0.898,
+     "f1": 0.9462,
+     "support": 49
+    },
+    "layer_separation": {
+     "precision": 0.8302,
+     "recall": 0.8627,
+     "f1": 0.8462,
+     "support": 51
+    },
+    "bridge_sagging": {
+     "precision": 0.0,
+     "recall": 0.0,
+     "f1": 0.0,
+     "support": 0
+    },
+    "overhang_curling": {
+     "precision": 0.0,
+     "recall": 0.0,
+     "f1": 0.0,
+     "support": 0
+    },
+    "stringing": {
+     "precision": 0.75,
+     "recall": 0.9808,
+     "f1": 0.85,
+     "support": 104
+    },
+    "blobs": {
+     "precision": 0.9381,
+     "recall": 0.901,
+     "f1": 0.9192,
+     "support": 101
+    },
+    "under_extrusion": {
+     "precision": 0.7068,
+     "recall": 0.9038,
+     "f1": 0.7932,
+     "support": 104
+    },
+    "over_extrusion": {
+     "precision": 0.8966,
+     "recall": 0.75,
+     "f1": 0.8168,
+     "support": 104
+    },
+    "first_layer": {
+     "precision": 0.9524,
+     "recall": 0.7792,
+     "f1": 0.8571,
+     "support": 77
+    },
+    "other": {
+     "precision": 0.8482,
+     "recall": 0.9135,
+     "f1": 0.8796,
+     "support": 104
+    }
+   }
+  },
+  "latency_ms": {
+   "p50": 730,
+   "p95": 869
+  },
+  "agreement_with_pytorch_primary": 0.884
+ },
+ "comparison_199_images": {
+  "note": "same images and prompt; 26B-A4B-it Q3_K_M stock on llama.cpp",
+  "e4b_finetuned_pytorch": {
+   "primary_accuracy": 0.93,
+   "false_positive_rate_on_none": 0.0
+  },
+  "e4b_finetuned_gguf_q8_0": {
+   "primary_accuracy": 0.885,
+   "false_positive_rate_on_none": 0.0526,
+   "latency_ms_p50": 728
+  },
+  "gemma4_26b_a4b_q3_stock": {
+   "primary_accuracy": 0.245,
+   "false_positive_rate_on_none": 0.5263,
+   "latency_ms_p50": 2586
+  }
+ }
+}

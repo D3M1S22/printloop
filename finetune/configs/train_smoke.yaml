@@ -1,0 +1,36 @@
+# Smoke test of the whole pipeline on any GPU with >= 40 GB (a few steps, a few test images).
+#   printloop-ft train --config configs/train_smoke.yaml
+run_id: smoke
+build_id: v1
+model: google/gemma-4-E4B-it
+dtype: bfloat16
+attn_implementation: sdpa
+max_soft_tokens: 280
+max_new_tokens: 64
+seed: 3407
+
+lora:
+  r: 16
+  alpha: 16
+  dropout: 0.0
+  vision: true
+
+train:
+  epochs: 1
+  max_steps: 20
+  batch_size: 4
+  grad_accum: 2
+  lr: 1.0e-4
+  warmup_steps: 5
+  weight_decay: 0.001
+  max_grad_norm: 0.3
+  optim: adamw_torch
+  gradient_checkpointing: true
+  save_steps: 10
+  eval_steps: 10
+  logging_steps: 5
+  workers: 4
+
+val_limit: 16
+test_limit: 16
+eval_batch_size: 8

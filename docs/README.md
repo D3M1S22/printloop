@@ -11,6 +11,7 @@ Read in this order:
 5. [02_DATA_STRATEGY](printloop/02_DATA_STRATEGY.md): induced defects, photo protocol, rubric, metrics
 6. [01_RESEARCH_STACK](printloop/01_RESEARCH_STACK.md): what the official sources say (Bambu, OrcaSlicer, Gemma 4/vLLM, prior art, datasets)
 7. [04_PLAN_DECISIONS_RISKS](printloop/04_PLAN_DECISIONS_RISKS.md): decisions, spikes, plan, risks
+8. [07_VISION_MODEL](printloop/07_VISION_MODEL.md): the fine-tuned Gemma 4 E4B defect detector (contract, results, serving), the Mode 1 design and how the model can help Mode 2. Training code: [`finetune/`](../finetune/README.md), a separate component ready for AMD MI300X
 
 The team is going ahead with PrintLoop Mode 2 (17/10). MarginSwarm stays on the `MarginSwarm` branch (`docs/marginswarm/`).
 

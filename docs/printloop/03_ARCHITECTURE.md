@@ -165,6 +165,10 @@ Implementation: effect threshold `MIN_EFFECT` = 25% of the change set, volumetri
 
 ## 6. Mode 1 (stretch)
 
+> Updated design and the detector to use: [07_VISION_MODEL.md](07_VISION_MODEL.md) §7. The detector is a Gemma 4 E4B
+> fine-tuned on public FDM defect datasets (one frame → `{"defects", "primary"}` over 12 classes, ~0.75 s per frame
+> on llama.cpp), it supersedes the "~30 s to the 26B with a reduced taxonomy" plan below.
+
 - Read-only MQTT client for the status (`layer_num`, `mc_percent`, `gcode_state`, temperatures) and a camera client on :6000 that saves one frame every N seconds.
 - Every ~30 s the latest frame goes to Gemma with a reduced taxonomy (`spaghetti`, `warping`, `layer_shift`, `none`).
 - If it finds a defect with high confidence, the UI proposes a **pause**, and the pause starts only after a click. `print.stop` is never automatic.
