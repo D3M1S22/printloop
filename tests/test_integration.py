@@ -264,3 +264,72 @@ def test_api_delete_confirm_rewind(runs, cases):
     assert not loop.case_dir(case.id).exists()
     assert client.get(f"/api/cases/{case.id}").status_code == 404
     assert client.delete(f"/api/cases/{case.id}").status_code == 404
+
+
+def _two_models(monkeypatch, detector_answer, model_answer):
+    """Fakes both models: the E4B detector (per photo) and the 26B (diagnosis)."""
+    from printloop import detector, llm
+    seen = {"hint": None}
+    monkeypatch.setattr(llm, "available", lambda: True)
+    monkeypatch.setattr(llm, "vision_available", lambda: True)
+
+    def fake_detect(image):
+        if isinstance(detector_answer, Exception):
+            return detector.Detection(error=str(detector_answer))
+        return detector.Detection(defects=detector_answer, primary=(detector_answer or ["none"])[0], model="e4b",
+                                  latency_ms=5.0)
+
+    def fake_chat(messages, schema, name="output", **kw):
+        texts = [p["text"] for p in messages[1]["content"] if p.get("type") == "text"]
+        seen["hint"] = next((t for t in texts if t.startswith("A defect classifier")), None)
+        defect, severity = model_answer
+        findings = [] if defect == "none" else [{"defect": defect, "severity": severity, "confidence": 0.9,
+                                                 "evidence": [], "location": ""}]
+        return {"findings": findings, "primary": defect, "needs_more_info": False, "question_for_operator": ""}, 9.0
+
+    monkeypatch.setattr(detector, "detect", fake_detect)
+    monkeypatch.setattr(llm, "chat_json", fake_chat)
+    return seen
+
+
+@pytest.mark.parametrize("detected,model,state,agreement", [
+    (["stringing"], ("stringing", 2), "diagnosed", "agree"),
+    (["stringing"], ("under_extrusion", 2), "needs_info", "disagree"),
+    (["stringing"], ("none", 0), "needs_info", "disagree"),
+    ([], ("stringing", 3), "needs_info", "disagree"),
+    ([], ("none", 0), "done", "agree"),
+    (RuntimeError("down"), ("stringing", 2), "diagnosed", "unavailable"),
+])
+def test_two_model_diagnosis(runs, cases, monkeypatch, detected, model, state, agreement):
+    from printloop import loop
+    seen = _two_models(monkeypatch, detected, model)
+    case = loop.create(cases / "C6_stringing_retraction" / "project.3mf")
+    case = loop.add_photos(case.id, [("front.jpg", _photo()), ("side.jpg", _photo())])
+    assert len(case.current.detections) == 2
+    case = loop.diagnose_case(case.id, mode="llm")
+    assert case.state == state and case.current.diagnosis.detector.agreement == agreement
+    if isinstance(detected, list):
+        assert "front.jpg: " in seen["hint"]
+    else:
+        assert seen["hint"] is None
+    if state == "needs_info":
+        assert "detector" in case.message
+        # the operator settles it; the case goes on
+        case = loop.diagnose_case(case.id, mode="operator", defect="stringing", severity=2)
+        assert case.state == "diagnosed"
+
+
+def test_detections_follow_the_photos(runs, cases, monkeypatch):
+    from printloop import loop
+    _two_models(monkeypatch, ["blobs"], ("blobs", 2))
+    case = loop.create(cases / "C6_stringing_retraction" / "project.3mf")
+    case = loop.add_photos(case.id, [("a.jpg", _photo())])
+    assert [d.photo.split("/")[-1] for d in case.current.detections] == ["a.jpg"]
+    case = loop.add_photos(case.id, [("b.jpg", _photo())])        # replace: labels of the old photo go away
+    assert [d.photo.split("/")[-1] for d in case.current.detections] == ["b.jpg"]
+    case = loop.diagnose_case(case.id, mode="llm")
+    assert case.state == "escalated" and "Zits" in case.message   # blobs: no verifiable patch in the KB
+    case = loop.rewind(case.id, 1, "photos")
+    assert case.current.detections == []
+    events = [row["event"] for row in loop.audit_log(case.id)]
+    assert events.count("detected") == 2

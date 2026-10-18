@@ -1,4 +1,4 @@
-import { Link, Outlet, useRouteError } from 'react-router'
+import { Link, NavLink, Outlet, useRouteError } from 'react-router'
 import { HealthBar } from './HealthBar'
 import { ErrorNotice } from './ui'
 
@@ -14,6 +14,12 @@ export function Shell() {
             <img src="/favicon.svg" alt="" />
             PrintLoop <small>defect → verified patch</small>
           </Link>
+          <nav className="topnav" aria-label="Sections">
+            <NavLink to="/" end>
+              Cases
+            </NavLink>
+            <NavLink to="/live">Live</NavLink>
+          </nav>
           <span className="topbar__spacer" />
           <HealthBar />
         </div>

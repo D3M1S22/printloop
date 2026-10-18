@@ -29,6 +29,24 @@ class Finding(BaseModel):
     location: str = ""
 
 
+class PhotoDetection(BaseModel):
+    """Answer of the E4B detector for one uploaded photo (docs/printloop/09_MODE2_TWO_MODELS.md)."""
+    photo: str
+    defects: list[str] = []
+    primary: str = "none"
+    model: str | None = None
+    latency_ms: float | None = None
+    error: str | None = None
+
+
+class DetectorSummary(BaseModel):
+    """Detector classes over all photos and whether the 26B agrees with them."""
+    defects: list[str] = []
+    primary: str = "none"
+    agreement: Literal["agree", "disagree", "unavailable"] = "unavailable"
+    photos: int = 0
+
+
 class Diagnosis(BaseModel):
     findings: list[Finding] = []
     primary: DefectClass = "none"
@@ -38,6 +56,7 @@ class Diagnosis(BaseModel):
     model: str | None = None
     latency_ms: float | None = None
     note: str = ""
+    detector: DetectorSummary | None = None
     at: str = Field(default_factory=now_iso)
 
     def primary_finding(self) -> Finding | None:
@@ -133,6 +152,7 @@ class Iteration(BaseModel):
     project: str                     # 3MF printed in this iteration (relative to the case folder)
     source_gcode: str                # G-code of that print: the "before" of the pre-flight
     photos: list[str] = []
+    detections: list[PhotoDetection] = []   # E4B labels, one per photo, filled at upload (best effort)
     note: str = ""
     diagnosis: Diagnosis | None = None
     proposal: Proposal | None = None
@@ -165,3 +185,47 @@ class Case(BaseModel):
     @property
     def current(self) -> Iteration:
         return self.iterations[-1]
+
+
+# --- Mode 1: live monitoring (docs/printloop/08_MODE1_LIVE.md) ---------------------------------------------
+
+class LiveDetection(BaseModel):
+    frame_id: str                     # sha1 of the JPEG (16 hex)
+    name: str = ""                    # file name for replayed frames
+    taken_at: str
+    layer_num: int | None = None
+    progress: float | None = None     # mc_percent
+    defects: list[str] = []
+    primary: str = "none"
+    model: str | None = None
+    latency_ms: float | None = None
+    error: str | None = None
+
+
+class LiveAlert(BaseModel):
+    id: str
+    defect: str
+    level: Literal["warning", "pause_proposed"]
+    since: str
+    frames: list[str] = []            # frame ids kept as evidence
+    cleared_at: str | None = None
+    dismissed: bool = False
+    dismiss_reason: str = ""
+
+
+class LiveSession(BaseModel):
+    id: str
+    status: Literal["running", "stopped", "finished", "error"] = "running"
+    source: dict[str, Any] = {}       # {"kind": "replay"|"p1s"|"url", "detail": ...}
+    interval_s: float = 10
+    record_all: bool = False
+    case_id: str | None = None
+    started_at: str = Field(default_factory=now_iso)
+    ended_at: str | None = None
+    error: str = ""
+    thresholds: dict[str, int] = {}
+    printer: dict[str, Any] = {"linked": False}
+    detector: dict[str, Any] = {}     # model, calls, errors, latency_p50_ms
+    last: LiveDetection | None = None
+    alerts: list[LiveAlert] = []
+    counts: dict[str, Any] = {"frames": 0, "skipped": 0, "errors": 0, "positives": {}}

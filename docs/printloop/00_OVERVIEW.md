@@ -1,7 +1,7 @@
 # 00. PrintLoop: project direction
 
 > **Track:** 1, Intelligent Industry · **Target prizes:** AMD Main · Google (Gemma on AMD) · Vibe Generation
-> **Status (18 Oct 2026):** Mode 2 implemented and tested end to end with the real slicer. A fine-tuned Gemma 4 E4B defect detector is trained ([07](07_VISION_MODEL.md)); **Mode 1** (live monitoring, [08](08_MODE1_LIVE.md)) and **Mode 2 with two models** ([09](09_MODE2_TWO_MODELS.md)) are specified and being built. Details in [06_IMPLEMENTATION_STATUS.md](06_IMPLEMENTATION_STATUS.md).
+> **Status (18 Oct 2026):** Mode 2 implemented and tested end to end with the real slicer. A fine-tuned Gemma 4 E4B defect detector ([07](07_VISION_MODEL.md)) now labels the photos for the 26B (**Mode 2 with two models**, [09](09_MODE2_TWO_MODELS.md)) and every camera frame in **Mode 1** (live monitoring, [08](08_MODE1_LIVE.md), implemented on recorded frames; P1S camera and MQTT pause still to try). Details in [06_IMPLEMENTATION_STATUS.md](06_IMPLEMENTATION_STATUS.md).
 > **Original concept:** [`../ideas/01_printloop.md`](../ideas/01_printloop.md). This document updates it with what the official sources showed.
 
 ---
@@ -42,14 +42,14 @@ Neither turns an observed defect into a **persistent, verified change to the pre
 
 **Mode 2, after printing (implemented):**
 - upload of the printed `.3mf` project (it holds model and settings) and of 1–4 photos of the part;
-- diagnosis with Gemma 4 26B-A4B (JSON schema); planned today: the fine-tuned E4B labels each photo and the 26B uses
-  the labels as a hint, disagreement goes to the operator ([09](09_MODE2_TWO_MODELS.md));
+- diagnosis with Gemma 4 26B-A4B (JSON schema); the fine-tuned E4B labels each photo and the 26B uses the labels as
+  a hint, disagreement goes to the operator ([09](09_MODE2_TWO_MODELS.md));
 - defect → parameters KB, patch generation (at most 2 parameters) and validator;
 - headless re-slice with the slicer that created the project, G-code parsing and pre-flight;
 - approval UI with the preset diff and the pre-flight, "Reprint OK", going back to any step;
 - evaluation on prints with induced defects, AMD benchmark.
 
-**Mode 1, during the print (specified, being built: [08](08_MODE1_LIVE.md)):**
+**Mode 1, during the print ([08](08_MODE1_LIVE.md), implemented on the replay source):**
 - frames from a replay folder (P0) or the P1S camera (P1), one every `interval_s`;
 - per-frame detection with the fine-tuned Gemma 4 E4B ([07](07_VISION_MODEL.md)), temporal filter, alerts and a
   proposed pause (sent over MQTT only after a click, P2);

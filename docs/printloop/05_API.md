@@ -137,21 +137,20 @@ Error codes: `404` missing case or file · `409` action not allowed in the state
 
 Hints for the approval screen: show `changes` as a diff (`label`: `before` → `after` `unit`, with `reason`), the `checks` as a green/red list (`detail` is already readable), `side_effects` as "+10 s, +0 g", any `rejected_attempts` ("attempts discarded by the system") and `validation.warnings`. Operator edits (`edits`) use the KB `key`s (`/api/kb` → `params` for label, unit, bounds and step).
 
-## 4. Planned (not implemented yet)
+## 4. Mode 1 and the two-model Mode 2 (implemented 18/10)
 
-These additions are specified but not in the code. The frontend can build on them with hand-written fixtures; the
-backend will match these shapes.
+Specs: [08](08_MODE1_LIVE.md), [09](09_MODE2_TWO_MODELS.md). `npm run dev:fixtures` simulates a short live session.
 
 **Mode 1, live monitoring** ([08_MODE1_LIVE.md](08_MODE1_LIVE.md) §8, full session object there):
 
 | Method | Path | Body | Response |
 | :-- | :-- | :-- | :-- |
-| `GET` | `/api/live` | — | current session or `null`; poll every 2 s while running |
+| `GET` | `/api/live` | — | `{session, running, detector, printer, defaults}`; poll every 2 s while running |
 | `POST` | `/api/live/start` | `{"source": "replay"\|"p1s"\|"url", "replay_dir"?, "url"?, "interval_s"?, "case_id"?, "record_all"?}` | session |
 | `POST` | `/api/live/stop` | — | session |
 | `POST` | `/api/live/alerts/{alert_id}/dismiss` | `{"reason"?}` | session |
-| `POST` | `/api/live/pause` | `{"alert_id"?}` | session; `print.pause` over MQTT, only after the operator's click |
-| `POST` | `/api/live/attach` | `{"case_id"?, "frames"?}` | **Case** with the evidence frames as photos of its current iteration |
+| `POST` | `/api/live/pause` | — | not implemented: `409` until the MQTT link exists |
+| `POST` | `/api/live/attach` | `{"case_id"?, "session_id"?, "frames"?}` | **Case** with up to 4 evidence frames as photos of its current iteration |
 | `GET` | `/api/live/sessions` · `/api/live/sessions/{id}` | — | past sessions |
 | `DELETE` | `/api/live/sessions/{id}` | — | `{"deleted": id}` |
 | `GET` | `/api/live/frames/{session_id}/{frame_id}` | — | JPEG |
@@ -162,5 +161,6 @@ backend will match these shapes.
   `POST /photos` (best effort).
 - `iterations[].diagnosis.detector`: `{defects, primary, agreement: "agree"|"disagree"|"unavailable"}`. A
   disagreement sets `needs_more_info` and the case goes to `needs_info` with both candidates in `message`.
-- `GET /api/health`: `vision_llm` (`mode`, `model`, `base_url`) next to `llm`.
+- `GET /api/health`: `vision_llm` (`mode`, `model`, `base_url`), `vision_telemetry`, `mode2_detector`, and `warnings`
+  (e.g. detector and 26B on the same server).
 - `GET /api/taxonomy` and `DefectClass`: two new classes, `layer_separation` and `blobs`.

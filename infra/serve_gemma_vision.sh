@@ -4,7 +4,7 @@
 #
 # - up to 4 images per request, no audio (the 26B-A4B and 31B variants do not support it);
 # - always --api-key: Docker port mappings bypass UFW and the endpoint is public;
-# - PrintLoop runs no other workloads on the GPU, so vLLM can use almost all the VRAM.
+# - GPU_UTIL: 0.90 alone; 0.75 when the E4B detector shares the MI300X (docs/printloop/07_VISION_MODEL.md §6.3, 0.15 for it).
 #
 # Then in .env: LLM_BASE_URL=http://<DROPLET_IP>:8000/v1  LLM_API_KEY=<VLLM_API_KEY>  LLM_MODEL=$MODEL
 set -euo pipefail
@@ -19,7 +19,7 @@ vllm serve "$MODEL" \
   --api-key "$VLLM_API_KEY" \
   --max-model-len 16384 \
   --limit-mm-per-prompt '{"image": 4, "audio": 0}' \
-  --gpu-memory-utilization 0.90 \
+  --gpu-memory-utilization "${GPU_UTIL:-0.90}" \
   --async-scheduling \
   "${EXTRA[@]}" \
   > /tmp/vllm.log 2>&1 &

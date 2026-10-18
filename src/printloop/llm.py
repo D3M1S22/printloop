@@ -19,7 +19,7 @@ from typing import Any
 from openai import OpenAI
 from PIL import Image, ImageOps
 
-from printloop.config import LLM, LOOP
+from printloop.config import LLM, LOOP, VISION_LLM
 
 
 class LLMUnavailable(RuntimeError):
@@ -50,17 +50,28 @@ class Telemetry:
                 "completion_tokens": self.completion_tokens, "latency_p50_ms": pct(0.5), "latency_p95_ms": pct(0.95)}
 
 
-TELEMETRY = Telemetry()
+TELEMETRY = Telemetry()          # Mode 2 reasoner (26B)
+VISION_TELEMETRY = Telemetry()   # E4B detector: kept apart so live frames do not flood the Mode 2 figures
 
 
 def available() -> bool:
     return LLM.enabled
 
 
+def vision_available() -> bool:
+    return VISION_LLM.enabled
+
+
 def describe() -> dict:
     if not LLM.enabled:
         return {"mode": "offline", "model": None, "base_url": None}
     return {"mode": "llm", "model": LLM.model, "base_url": LLM.base_url}
+
+
+def describe_vision() -> dict:
+    if not VISION_LLM.enabled:
+        return {"mode": "off", "model": None, "base_url": None}
+    return {"mode": "on", "model": VISION_LLM.model, "base_url": VISION_LLM.base_url}
 
 
 def image_part(path: str | Path, max_px: int | None = None) -> dict:
@@ -85,28 +96,37 @@ def _json_from_text(text: str) -> Any:
 
 
 def chat_json(messages: list[dict], schema: dict, name: str = "output", temperature: float = 0.0,
-              max_tokens: int | None = None) -> tuple[dict, float]:
+              max_tokens: int | None = None, *, endpoint=None, retry_without_schema: bool = True,
+              telemetry: Telemetry | None = None, extra_body: dict | None = None) -> tuple[dict, float]:
     """Call with output constrained to a JSON schema. Returns (object, latency ms).
 
-    If the endpoint rejects `response_format` (e.g. old llama-server) it retries without it and looks for the JSON in the text.
+    `endpoint` defaults to the Mode 2 reasoner (LLM_*); the detector passes VISION_LLM. If the endpoint rejects
+    `response_format` (e.g. old llama-server) it retries without it and looks for the JSON in the text, unless
+    `retry_without_schema` is off (live frames: the next tick is the retry).
     """
-    if not LLM.enabled:
-        raise LLMUnavailable("no LLM endpoint configured (LLM_BASE_URL)")
-    client = OpenAI(base_url=LLM.base_url, api_key=LLM.api_key or "EMPTY", timeout=LLM.timeout_s, max_retries=1)
+    cfg = endpoint or LLM
+    tel = telemetry or TELEMETRY
+    if not cfg.enabled:
+        raise LLMUnavailable(f"no endpoint configured for {cfg.model}")
+    max_tokens = max_tokens or cfg.max_tokens
+    client = OpenAI(base_url=cfg.base_url, api_key=cfg.api_key or "EMPTY", timeout=cfg.timeout_s,
+                    max_retries=1 if retry_without_schema else 0)
     last: Exception | None = None
-    for use_schema in (True, False):
+    for use_schema in ((True, False) if retry_without_schema else (True,)):
         try:
             t0 = time.perf_counter()
             kwargs = {"response_format": {"type": "json_schema",
                                           "json_schema": {"name": name, "schema": schema, "strict": True}}} if use_schema else {}
-            resp = client.chat.completions.create(model=LLM.model, messages=messages, temperature=temperature,
-                                                  max_tokens=max_tokens or LLM.max_tokens, **kwargs)
+            if extra_body:
+                kwargs["extra_body"] = extra_body
+            resp = client.chat.completions.create(model=cfg.model, messages=messages, temperature=temperature,
+                                                  max_tokens=max_tokens, **kwargs)
             latency = (time.perf_counter() - t0) * 1000
-            TELEMETRY.record(latency, resp.usage)
+            tel.record(latency, resp.usage)
             if resp.choices[0].finish_reason == "length":
-                raise ValueError(f"reply truncated at {max_tokens or LLM.max_tokens} tokens: increase LLM_MAX_TOKENS")
+                raise ValueError(f"reply truncated at {max_tokens} tokens: increase the max_tokens of {cfg.model}")
             return _json_from_text(resp.choices[0].message.content), latency
         except Exception as exc:  # noqa: BLE001 - try the next variant
-            TELEMETRY.errors += 1
+            tel.errors += 1
             last = exc
-    raise LLMUnavailable(f"LLM call failed: {last}")
+    raise LLMUnavailable(f"LLM call failed ({cfg.model}): {last}")

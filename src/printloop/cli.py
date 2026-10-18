@@ -83,6 +83,64 @@ def cmd_demo(args) -> None:
     print(f"audit: {loop.case_dir(case.id) / 'audit.jsonl'}")
 
 
+def _read_labels(path: str) -> dict[str, list[str]]:
+    """CSV `name,defects` (defects separated by ';', empty = clean frame)."""
+    import csv
+    out = {}
+    with open(path, encoding="utf-8") as fh:
+        for row in csv.reader(fh):
+            if not row or row[0] in ("name", "frame", "frame_id"):
+                continue
+            out[row[0]] = [d.strip() for d in (row[1] if len(row) > 1 else "").split(";") if d.strip()]
+    return out
+
+
+def cmd_live_replay(args) -> None:
+    """Detector + temporal filter on a folder of frames, without the UI (08_MODE1_LIVE.md §10)."""
+    import statistics
+
+    from printloop import config, detector
+    from printloop.live.policy import Policy
+    from printloop.live.sources import ReplaySource
+
+    if not llm.vision_available():
+        raise ValueError("set VISION_LLM_BASE_URL (the fine-tuned E4B detector)")
+    src, pol = ReplaySource(args.dir), Policy(config.MODE1)
+    labels = _read_labels(args.labels) if args.labels else {}
+    frames, latencies, errors, first_alert, first_defect = [], [], 0, {}, None
+    while (frame := src.latest()) is not None:
+        det = detector.detect(frame.jpeg)
+        if det.error:
+            errors += 1
+            print(f"{frame.name}: error {det.error}")
+            continue
+        latencies.append(det.latency_ms or 0)
+        frames.append((frame.name, det))
+        truth = labels.get(frame.name)
+        if truth and first_defect is None:
+            first_defect = len(frames) - 1
+        for alert in pol.update(frame.id, det.defects, frame.name):
+            state = f"cleared ({alert.id})" if alert.cleared_at else f"RAISED {alert.level} ({alert.id})"
+            print(f"{frame.name}: {alert.defect} {state}")
+            first_alert.setdefault(alert.defect, len(frames) - 1)
+        if args.verbose:
+            print(f"{frame.name}: {det.defects or 'clean'} {det.latency_ms} ms")
+    print(f"\nframes {len(frames)} · errors {errors} · latency p50 "
+          f"{statistics.median(latencies) if latencies else '-'} ms · thresholds {pol.thresholds()}")
+    print("alerts: " + (", ".join(f"{a.defect} {a.level} since {a.since}" for a in pol.alerts) or "none"))
+    if labels:
+        scored = [(name, det) for name, det in frames if name in labels]
+        truth_primary = lambda d: (detector.sort(d) or ["none"])[0]  # noqa: E731
+        correct = sum(det.primary == truth_primary(labels[name]) for name, det in scored)
+        clean = [det for name, det in scored if not labels[name]]
+        print(f"labelled frames {len(scored)} · primary accuracy {correct}/{len(scored)} · "
+              f"false positives on clean frames {sum(bool(d.defects) for d in clean)}/{len(clean)}")
+        if first_defect is not None and first_alert:
+            print(f"frames from the first labelled defect to the first alert: {min(first_alert.values()) - first_defect}")
+        elif not any(labels.values()):
+            print(f"clean print: false alerts {len(pol.alerts)}")
+
+
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(prog="printloop", description="PrintLoop: photos → diagnosis → verified patch")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -131,6 +189,12 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("case_id")
     p = sub.add_parser("show")
     p.add_argument("case_id")
+    p = sub.add_parser("live", help="Mode 1 tools (the live session itself runs from the API / UI)")
+    live_sub = p.add_subparsers(dest="live_cmd", required=True)
+    lp = live_sub.add_parser("replay", help="detector + temporal filter on a folder of frames, with a report")
+    lp.add_argument("dir")
+    lp.add_argument("--labels", help="CSV name,defects (';'-separated, empty = clean) for accuracy and false alerts")
+    lp.add_argument("--verbose", "-v", action="store_true")
     p = sub.add_parser("demo", help="full offline loop on a test set case")
     p.add_argument("--case", default="C1_bridge_speed")
     p.add_argument("--testset", default=str(testset.DEFAULT_TESTSET_DIR))
@@ -179,6 +243,8 @@ def main(argv: list[str] | None = None) -> None:
             _print_case(loop.load(args.case_id))
         elif args.cmd == "demo":
             cmd_demo(args)
+        elif args.cmd == "live":
+            cmd_live_replay(args)
     except (loop.CaseError, loop.NotFound, slicer.SlicerError, llm.LLMUnavailable, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)

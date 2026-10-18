@@ -23,6 +23,16 @@ export function HealthBar() {
       <Badge tone={llm ? 'ok' : 'warn'}>
         {llm ? `Diagnosis: ${data.llm.model ?? 'LLM'}` : 'Diagnosis: operator (LLM offline)'}
       </Badge>
+      {data.vision_llm && (
+        <Badge tone={data.vision_llm.mode === 'on' ? 'ok' : 'neutral'}>
+          {data.vision_llm.mode === 'on' ? `Detector: ${data.vision_llm.model ?? 'E4B'}` : 'Detector: off'}
+        </Badge>
+      )}
+      {data.warnings?.map((w) => (
+        <span key={w} title={w}>
+          <Badge tone="warn">Shared model server</Badge>
+        </span>
+      ))}
       <Badge tone={slicer ? 'ok' : 'danger'}>
         {slicer ? `Slicer: ${data.slicer.version ?? 'ok'}` : 'Slicer not found'}
       </Badge>

@@ -22,10 +22,10 @@ from typing import Any
 
 from PIL import Image
 
-from printloop import diagnose, gcode, kb, llm, preflight, project, propose, slicer, validate
+from printloop import detector, diagnose, gcode, kb, llm, preflight, project, propose, slicer, validate
 from printloop.config import LOOP
-from printloop.models import (Attempt, Case, Change, Confirmation, Decision, Diagnosis, Iteration, Proposal,
-                              now_iso)
+from printloop.models import (Attempt, Case, Change, Confirmation, Decision, Diagnosis, Iteration, PhotoDetection,
+                              Proposal, now_iso)
 from printloop.taxonomy import label
 
 _LOCK = threading.RLock()
@@ -147,6 +147,7 @@ def _clear(case: Case, it: Iteration, step: str) -> list[Path]:
         it.rejected = []  # rejections were made against the diagnosis being discarded
     if index == 0:
         it.photos = []
+        it.detections = []
         it.note = ""
         paths.append(root / f"iter_{it.n}" / "photos")
     return paths
@@ -209,6 +210,7 @@ def add_photos(case_id: str, files: list[tuple[str, bytes]], note: str = "", rep
         if replace:
             _discard(case, [photo_dir], f"iter{it.n}_replaced_photos")
             it.photos = []
+            it.detections = []
         photo_dir.mkdir(parents=True, exist_ok=True)
         if len(it.photos) + len(files) > LOOP.max_photos:
             raise CaseError(f"at most {LOOP.max_photos} photos per iteration")
@@ -227,7 +229,29 @@ def add_photos(case_id: str, files: list[tuple[str, bytes]], note: str = "", rep
             it.note = note
         case.state = "ready"
         _audit(case, "photos_added", actor="operator", photos=it.photos, note=note)
+        _detect_photos(case, it)
         return _save(case)
+
+
+def detector_enabled() -> bool:
+    return LOOP.detector and llm.vision_available()
+
+
+def _detect_photos(case: Case, it: Iteration) -> None:
+    """E4B labels for the photos that do not have them yet. Best effort: errors are recorded, never raised."""
+    if not detector_enabled():
+        return
+    done = {d.photo for d in it.detections}
+    new = []
+    for rel in it.photos:
+        if rel in done:
+            continue
+        det = detector.detect(case_dir(case.id) / rel)
+        new.append(PhotoDetection(photo=rel, defects=det.defects, primary=det.primary, model=det.model,
+                                  latency_ms=det.latency_ms, error=det.error))
+    if new:
+        it.detections += new
+        _audit(case, "detected", actor="model", detections=[d.model_dump() for d in new])
 
 
 def _previous_diagnosis(case: Case) -> Diagnosis | None:
@@ -248,11 +272,14 @@ def diagnose_case(case_id: str, mode: str = "auto", defect: str | None = None, s
             if not it.photos:
                 raise CaseError("upload photos of the part first")
             photos = [case_dir(case.id) / p for p in it.photos]
-            diag = diagnose.diagnose_llm(photos, case.printer, case.material, note, _previous_diagnosis(case))
+            hint = diagnose.detector_hint(it.detections) if LOOP.detector else None
+            diag = diagnose.diagnose_llm(photos, case.printer, case.material, note, _previous_diagnosis(case), hint)
         else:
             if defect is None:
                 raise CaseError("offline mode: specify the observed defect (defect) and its severity")
             diag = diagnose.diagnose_operator(defect, 2 if severity is None else severity, note, it.photos)
+        if LOOP.detector:
+            diagnose.apply_detector(diag, it.detections, LOOP.accept_severity)
         _discard(case, _clear(case, it, "patch"), f"iter{it.n}_rediagnosed")
         it.diagnosis = diag
         _audit(case, "diagnosed", actor="model" if diag.source == "llm" else "operator",
@@ -266,6 +293,9 @@ def _route(case: Case, it: Iteration) -> tuple[str, str | None, str]:
     diag = it.diagnosis
     assert diag is not None
     patches_applied = it.n - 1
+    # The model disagrees with the detector: the operator decides before anything closes or escalates.
+    if diag.source == "llm" and diag.detector and diag.detector.agreement == "disagree":
+        return "needs_info", None, diag.question_for_operator
     if diag.primary == "none" or diag.severity <= LOOP.accept_severity:
         outcome = "no_defect" if patches_applied == 0 else "fixed"
         message = ("No defect to fix." if patches_applied == 0 else

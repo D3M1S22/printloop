@@ -68,7 +68,7 @@ For a fair comparison keep the build (`v1`), the effective batch (8), the number
 ### What has been verified
 
 The whole pipeline (unit tests, `train` with the smoke config, `evaluate` fine-tuned and `--base`, `export
---merge-only`) has been run end to end on a CUDA bf16 GPU with the same code and pinned versions. The ROCm
+--merge-only`) has been run end to end on a bf16 GPU with the same code and pinned versions. The ROCm
 container itself has **not** been run on an MI300X yet: the first `smoke` step on the VM is the check.
 
 **transformers must be ≥ 5.5.2** (pinned 5.5.4). With 5.5.0 the KV-sharing layers of Gemma 4 E2B/E4B recompute

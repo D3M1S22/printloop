@@ -4,6 +4,7 @@ import { ApiError } from '../api'
 import {
   useCase,
   useConfirmSuccess,
+  useDefectLabel,
   useDecide,
   useDeleteCase,
   useDiagnose,
@@ -42,12 +43,43 @@ function listOf(items: string[]): string {
   return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
 }
 
-function ManualFallback({ actions, initial }: { actions: Actions; initial?: DefectClass }) {
+/** Detector labels under each photo ("E4B: stringing"), when the detector ran on them. */
+function useCaptions(it: Iteration): (string | undefined)[] {
+  const label = useDefectLabel()
+  return it.photos.map((photo) => {
+    const det = it.detections?.find((d) => d.photo === photo)
+    if (!det) return undefined
+    if (det.error) return 'E4B: no answer'
+    return `E4B: ${det.defects.length ? det.defects.map(label).join(', ') : 'no defect'}`
+  })
+}
+
+/** Union of the detector's classes over the photos, in its urgency order (the backend already sorts each photo). */
+const detectedClasses = (it: Iteration): string[] => [
+  ...new Set((it.detections ?? []).filter((d) => !d.error).flatMap((d) => d.defects)),
+]
+
+function ManualFallback({
+  actions,
+  initial,
+  suggestions,
+  open,
+}: {
+  actions: Actions
+  initial?: DefectClass
+  suggestions?: string[]
+  open?: boolean
+}) {
   return (
-    <details className="disclosure">
+    <details className="disclosure" open={open}>
       <summary>State the defect manually</summary>
       <div>
-        <ManualDiagnosisForm onSubmit={actions.manual} busy={actions.diagnose.isPending} initial={initial} />
+        <ManualDiagnosisForm
+          onSubmit={actions.manual}
+          busy={actions.diagnose.isPending}
+          initial={initial}
+          suggestions={suggestions}
+        />
       </div>
     </details>
   )
@@ -119,11 +151,17 @@ function PhotosStage({ data, actions }: { data: Case; actions: Actions }) {
 function DiagnoseStage({ data, actions }: { data: Case; actions: Actions }) {
   const it = lastOf(data)
   const llm = data.llm_mode === 'llm'
+  const captions = useCaptions(it)
+  const detected = detectedClasses(it)
+  const disagree = data.state === 'needs_info' && it.diagnosis?.detector?.agreement === 'disagree'
+  const suggestions = [...new Set([...detected, ...(it.diagnosis ? [it.diagnosis.primary] : [])])].filter(
+    (d) => d !== 'none',
+  )
   return (
     <>
       <ReprintCheck data={data} actions={actions} title="Is the reprint good?" />
       <Card title="Photos" subtitle={it.note ? `Note: ${it.note}` : undefined}>
-        <PhotoGrid urls={it.photo_urls} />
+        <PhotoGrid urls={it.photo_urls} captions={captions} />
         <details className="disclosure">
           <summary>Replace the photos</summary>
           <div>
@@ -138,7 +176,10 @@ function DiagnoseStage({ data, actions }: { data: Case; actions: Actions }) {
       </Card>
       <Card title="Diagnosis" accent>
         {data.state === 'needs_info' && (
-          <Notice tone="warn" title="The model asks for more information">
+          <Notice
+            tone="warn"
+            title={disagree ? 'The detector and the model disagree' : 'The model asks for more information'}
+          >
             {data.message}
           </Notice>
         )}
@@ -158,14 +199,26 @@ function DiagnoseStage({ data, actions }: { data: Case; actions: Actions }) {
             {actions.diagnose.isPending && (
               <Spinner label="Gemma 4 is analysing the photos (this can take up to a minute)…" />
             )}
-            <ManualFallback actions={actions} initial={it.diagnosis?.primary} />
+            <ManualFallback
+              actions={actions}
+              initial={it.diagnosis?.primary}
+              suggestions={suggestions}
+              open={disagree}
+            />
           </>
         ) : (
           <>
             <Notice tone="info">
-              LLM not configured: state the defect yourself. Patch, slicing and verification work all the same.
+              {detected.length || it.detections?.length
+                ? 'The 26B is not configured: the defect is pre-filled from the detector, set the severity and confirm.'
+                : 'LLM not configured: state the defect yourself. Patch, slicing and verification work all the same.'}
             </Notice>
-            <ManualDiagnosisForm onSubmit={actions.manual} busy={actions.diagnose.isPending} />
+            <ManualDiagnosisForm
+              onSubmit={actions.manual}
+              busy={actions.diagnose.isPending}
+              initial={detected[0] as DefectClass | undefined}
+              suggestions={detected}
+            />
           </>
         )}
         <ErrorNotice error={actions.diagnose.error} />
@@ -176,12 +229,13 @@ function DiagnoseStage({ data, actions }: { data: Case; actions: Actions }) {
 
 function ProposeStage({ data, actions }: { data: Case; actions: Actions }) {
   const it = lastOf(data)
+  const captions = useCaptions(it)
   return (
     <>
       <ReprintCheck data={data} actions={actions} title="Is the reprint good after all?" />
       <Card title="Diagnosis">
         {it.diagnosis && <DiagnosisView diagnosis={it.diagnosis} />}
-        <PhotoGrid urls={it.photo_urls} />
+        <PhotoGrid urls={it.photo_urls} captions={captions} />
         <ManualFallback actions={actions} initial={it.diagnosis?.primary} />
       </Card>
       <Card
@@ -206,12 +260,13 @@ function ProposeStage({ data, actions }: { data: Case; actions: Actions }) {
 
 function ApprovalStage({ data, actions }: { data: Case; actions: Actions }) {
   const it = lastOf(data)
+  const captions = useCaptions(it)
   if (!it.proposal) return null
   return (
     <>
       <Card title="Diagnosis">
         {it.diagnosis && <DiagnosisView diagnosis={it.diagnosis} />}
-        <PhotoGrid urls={it.photo_urls} />
+        <PhotoGrid urls={it.photo_urls} captions={captions} />
       </Card>
       <Card title="Patch to approve" subtitle={data.message} accent>
         <PatchReview proposal={it.proposal} preflight={it.preflight} validation={it.validation} />
@@ -233,6 +288,7 @@ function ApprovalStage({ data, actions }: { data: Case; actions: Actions }) {
 
 function ClosedStage({ data }: { data: Case }) {
   const it = lastOf(data)
+  const captions = useCaptions(it)
   const ok = data.state === 'done'
   return (
     <>
@@ -242,7 +298,7 @@ function ClosedStage({ data }: { data: Case }) {
       {it.diagnosis && (
         <Card title={ok ? 'Last assessment' : 'Diagnosis'}>
           <DiagnosisView diagnosis={it.diagnosis} />
-          <PhotoGrid urls={it.photo_urls} />
+          <PhotoGrid urls={it.photo_urls} captions={captions} />
         </Card>
       )}
       {data.latest_print_file_url && (

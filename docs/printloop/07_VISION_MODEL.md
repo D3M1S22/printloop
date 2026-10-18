@@ -18,7 +18,7 @@
 | Served on llama.cpp (GGUF Q8_0) | primary class **90.9%**, false positives on clean images 14.5%, **~0.75 s per frame** |
 | Against Gemma 4 26B-A4B stock (same 200 images, same prompt) | **88.5% vs 24.5%** primary class, 0.73 s vs 2.6 s per image |
 | Not covered | bridge sagging and overhang curling (no public training data), severity, causes, P1S chamber frames (not in the data yet) |
-| Hardware of the figures | training and PyTorch evaluation on CUDA (bf16 GPU), serving on a Tesla V100 16 GB. **Nothing measured on AMD yet**: the MI300X container is ready but unrun (`finetune/README.md`) |
+| MI300X | recipe and container ready (`finetune/`), not run yet |
 
 ---
 

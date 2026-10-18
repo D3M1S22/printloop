@@ -20,16 +20,20 @@ function CasePhoto({ url, name }: { url: string; name: string }) {
 
 const fileName = (path: string) => path.split('/').pop() ?? path
 
-export function PhotoGrid({ urls }: { urls: string[] }) {
+/** Photos of an iteration; `captions` (same order) carry the detector's labels when it ran. */
+export function PhotoGrid({ urls, captions }: { urls: string[]; captions?: (string | undefined)[] }) {
   if (urls.length === 0) return <p className="muted">No photos for this iteration.</p>
   return (
     <div className="photos">
-      {urls.map((url) => (
+      {urls.map((url, i) => (
         <figure className="photo" key={url}>
           <a href={url} target="_blank" rel="noreferrer">
             <CasePhoto url={url} name={fileName(url)} />
           </a>
-          <figcaption>{fileName(url)}</figcaption>
+          <figcaption>
+            {fileName(url)}
+            {captions?.[i] && <span className="photo__caption-model">{captions[i]}</span>}
+          </figcaption>
         </figure>
       ))}
     </div>

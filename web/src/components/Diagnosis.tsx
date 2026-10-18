@@ -1,10 +1,37 @@
 import { useId, useState } from 'react'
-import { useTaxonomy } from '../api/hooks'
-import type { DefectClass, Diagnosis } from '../api/types'
+import { useDefectLabel, useTaxonomy } from '../api/hooks'
+import type { DefectClass, DetectorSummary, Diagnosis } from '../api/types'
 import { SEVERITY_LABEL, percent } from '../lib/format'
 import { Badge, Button, Severity } from './ui'
 
 const fileName = (path: string) => path.split('/').pop() ?? path
+
+const AGREEMENT = {
+  agree: { tone: 'ok', text: 'agrees' },
+  disagree: { tone: 'warn', text: 'disagrees' },
+  unavailable: { tone: 'neutral', text: 'unavailable' },
+} as const
+
+/** What the fine-tuned E4B saw on the photos, and whether the diagnosis agrees with it. */
+export function DetectorLine({ detector }: { detector: DetectorSummary }) {
+  const label = useDefectLabel()
+  const a = AGREEMENT[detector.agreement]
+  return (
+    <p className="btn-row">
+      <span className="muted">Detector (fine-tuned E4B):</span>
+      <span>
+        {detector.agreement === 'unavailable'
+          ? 'no answer'
+          : detector.defects.length
+            ? detector.defects.map(label).join(', ')
+            : 'no defect'}
+      </span>
+      <Badge tone={a.tone} plain>
+        {a.text}
+      </Badge>
+    </p>
+  )
+}
 
 export function DiagnosisView({ diagnosis }: { diagnosis: Diagnosis }) {
   const { data: taxonomy } = useTaxonomy()
@@ -44,6 +71,7 @@ export function DiagnosisView({ diagnosis }: { diagnosis: Diagnosis }) {
         </p>
       )}
       {diagnosis.note && <p className="muted">Note: {diagnosis.note}</p>}
+      {diagnosis.detector && <DetectorLine detector={diagnosis.detector} />}
     </div>
   )
 }
@@ -56,10 +84,13 @@ export function ManualDiagnosisForm({
   onSubmit,
   busy,
   initial,
+  suggestions = [],
 }: {
   onSubmit: (defect: DefectClass, severity: number, note: string) => void
   busy: boolean
   initial?: DefectClass
+  /** One-click candidates, e.g. what the detector and the model reported when they disagree. */
+  suggestions?: string[]
 }) {
   const { data } = useTaxonomy()
   const selectId = useId()
@@ -94,6 +125,23 @@ export function ManualDiagnosisForm({
           ))}
         </select>
         {selected && <span className="hint">{selected.description}</span>}
+        {suggestions.length > 0 && (
+          <div className="btn-row">
+            <span className="hint">Suggested:</span>
+            {options
+              .filter((d) => suggestions.includes(d.id))
+              .map((d) => (
+                <Button
+                  key={d.id}
+                  size="sm"
+                  variant={defect === d.id ? 'primary' : 'default'}
+                  onClick={() => setDefect(d.id)}
+                >
+                  {d.label}
+                </Button>
+              ))}
+          </div>
+        )}
       </div>
       <fieldset className="field">
         <legend>Severity</legend>

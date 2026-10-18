@@ -1,6 +1,9 @@
 # 09. Mode 2 with two models: E4B detects, 26B reasons (implementation spec)
 
-> Written on 18 Oct 2026. Status: **designed, not implemented.** Chosen option: **B with the disagreement rule of C**
+> Written on 18 Oct 2026. Status (18/10, 09:00): **implemented** (`detector.py`, `loop.add_photos`, `diagnose.apply_detector`,
+> UI), except `eval diagnosis --detector` (§8). Real run on the ASA bridge photos: the E4B labelled both photos
+> `under_extrusion` in 1.6 s (it has no bridge data), the 26B reported sagging bridges with evidence (176 s including a
+> model swap on the shared router), and the case went to `needs_info` with both candidates. Chosen option: **B with the disagreement rule of C**
 > from [07_VISION_MODEL.md](07_VISION_MODEL.md) §8. Plan and cut lines for today: [04](04_PLAN_DECISIONS_RISKS.md) §3.
 
 ---
@@ -84,7 +87,8 @@ least as good as A on PrintLoop photos; the evidence text still has to cite what
 | unavailable / error | — | `unavailable` | as today (26B alone) |
 
 - `needs_info` is reached by setting `needs_more_info = true` and `question_for_operator` on the diagnosis. The router
-  in `loop._route` does not change.
+  in `loop._route` checks a disagreement **first**, before "no defect / severity ≤ 1 → done": otherwise a 26B `none`
+  against a detector defect would close the case.
 - On `needs_info` the manual diagnosis form is pre-filled with the 26B primary and shows the detector's classes as
   one-click options. The existing "State the defect manually" path resolves it.
 - Detector `other` means "blob of death / Z-banding" (a dataset convention, [07](07_VISION_MODEL.md) §3.1), not the
@@ -168,13 +172,14 @@ Until this table is filled, the README and the pitch quote only the fine-tuning 
 
 ## 9. Code changes (checklist)
 
-- [ ] `taxonomy.py` + web `types.ts`: `layer_separation`, `blobs`; `kb.yaml`: entries of §4.
-- [ ] `config.py`: `VisionLLMConfig` (`VISION_LLM_*`), `MODE2_DETECTOR`; `.env.example`.
-- [ ] `llm.py`: per-call endpoint/model, timeout and retry policy, separate telemetry (shared with Mode 1).
-- [ ] `detector.py` (shared with Mode 1, [08](08_MODE1_LIVE.md) §11): m1-v1 prompt and schema, one call per image.
-- [ ] `loop.add_photos`: best-effort detection, `Iteration.detections`; `diagnose.diagnose_llm`: hint block +
-      agreement rule; `models.py`: `PhotoDetection`, `Diagnosis.detector`.
-- [ ] `api.py`: health and view fields; web: photo labels, detector line, quick picks, health badge.
-- [ ] `eval.py`: `--detector on|off`.
-- [ ] Tests: agreement matrix with faked detector and 26B, detector failure at upload, recompute on replace,
-      discard on rewind, E4B-only path pre-fills the form.
+- [x] `taxonomy.py` + web `types.ts`: `layer_separation`, `blobs`; `kb.yaml`: entries of §4.
+- [x] `config.py`: `VisionLLMConfig` (`VISION_LLM_*`), `MODE2_DETECTOR`; `.env.example`.
+- [x] `llm.py`: per-call endpoint/model, retry policy, `extra_body`, separate telemetry (shared with Mode 1).
+- [x] `detector.py` (shared with Mode 1): m1-v1 prompt and schema, one call per image, never raises.
+- [x] `loop.add_photos`: best-effort detection, `Iteration.detections`; `diagnose`: hint block + agreement rule;
+      `models.py`: `PhotoDetection`, `DetectorSummary`, `Diagnosis.detector`.
+- [x] `api.py`: health fields (`vision_llm`, `mode2_detector`, `warnings`); web: photo labels, detector line, quick
+      picks, health badge, form pre-filled from the detector without the 26B.
+- [ ] `eval.py`: `--detector on|off` (needs the PrintLoop test-set photos anyway).
+- [x] Tests: agreement matrix with faked detector and 26B, detector failure, recompute on replace, discard on
+      rewind (`tests/test_integration.py`); detector line and quick picks (`web/src/components/Diagnosis.test.tsx`).

@@ -1,8 +1,9 @@
 # 06. Implementation status (Mode 2)
 
-> Updated on 18 Oct 2026, 08:30. Mode 2 is implemented. A fine-tuned Gemma 4 E4B defect detector is trained and
-> served ([07](07_VISION_MODEL.md)); **Mode 1** ([08](08_MODE1_LIVE.md)) and **Mode 2 with two models**
-> ([09](09_MODE2_TWO_MODELS.md)) are specified and are today's work ([04](04_PLAN_DECISIONS_RISKS.md) §3).
+> Updated on 18 Oct 2026, 09:00. Mode 2 is implemented, now with two models: the fine-tuned Gemma 4 E4B detector
+> ([07](07_VISION_MODEL.md)) labels each photo and the 26B reasons ([09](09_MODE2_TWO_MODELS.md)). **Mode 1** live
+> monitoring ([08](08_MODE1_LIVE.md)) is implemented on the replay source; the P1S camera source is written but not
+> tried on the printer, and the MQTT link (status, pause) is not implemented.
 
 ## 1. What works
 
@@ -26,11 +27,11 @@ The Mode 2 loop is implemented and tested end to end with the real slicer:
 | CLI (`printloop new/photos/diagnose/propose/approve/reject/stop/confirm/rewind/delete/demo/testset/inspect`) | `cli.py` | ✅ |
 | Test coupon and test set with induced defects + manifest | `testset.py`, `examples/coupon/` | ✅ |
 | Evaluation (offline patches, diagnosis with photos) and AMD benchmark | `eval.py`, `bench.py` | ✅ patches, ❓ diagnosis and benchmark (need photos and the droplet) |
-| Tests | `tests/` | ✅ 40 tests (unit + integration with the slicer + faked LLM path) |
+| Tests | `tests/` | ✅ 61 tests (unit + integration with the slicer + faked LLM and detector paths + Mode 1); web: 24 Vitest tests |
 | Language | everywhere | ✅ code, UI, backend messages, LLM prompts and project docs in English |
-| **Fine-tuned Gemma 4 E4B detector** (one image → defect classes, 12 classes + `none`) | `finetune/`, [07](07_VISION_MODEL.md) | ✅ trained and evaluated: 93.8% primary class in PyTorch, 90.9% as GGUF Q8_0 on llama.cpp (in-distribution test); ✅ served (`infra/serve_vision_e4b.sh`, router preset); ❌ not used by the app; ❓ never run on AMD |
-| **Mode 1** live monitoring (frame sources, monitor, temporal filter, alerts, Live page) | [08](08_MODE1_LIVE.md) | 📝 specified, not implemented |
-| **Mode 2 with two models** (E4B labels at upload, 26B with the hint, agreement rule, 2 new classes) | [09](09_MODE2_TWO_MODELS.md) | 📝 specified, not implemented |
+| **Fine-tuned Gemma 4 E4B detector** (one image → defect classes, 12 classes + `none`) | `finetune/`, `detector.py`, [07](07_VISION_MODEL.md) | ✅ trained and evaluated: 93.8% primary class in PyTorch, 90.9% as GGUF Q8_0 on llama.cpp (in-distribution test); ✅ used by the app (prompt checked identical to training); ❓ not run on the MI300X yet |
+| **Mode 1** live monitoring (replay / P1S / URL sources, monitor thread, k-of-n filter, alerts, evidence, Live page, `printloop live replay`) | `live/`, [08](08_MODE1_LIVE.md) | ✅ on replay, verified with the real E4B (~0.74 s per frame); ❓ P1S camera source not tried on the printer; ❌ MQTT status and pause |
+| **Mode 2 with two models** (E4B labels at upload, 26B with the hint, agreement rule, `layer_separation` and `blobs`) | `loop.py`, `diagnose.py`, [09](09_MODE2_TWO_MODELS.md) | ✅ verified with both real models on the ASA bridge photos (disagreement → `needs_info`); ❓ A vs B not measured on the test set |
 
 ## 2. Spikes: outcome
 
@@ -76,7 +77,7 @@ What these numbers do **not** say: given a correct diagnosis, they measure only 
 
 ```bash
 uv sync
-uv run pytest -q                                          # 40 tests
+uv run pytest -q                                          # 61 tests
 uv run printloop status                                   # slicer and LLM
 uv run printloop testset                                  # data/testset/C*/: project, 3MF to print, manifest
 uv run printloop demo --case C1_bridge_speed              # full offline loop
@@ -119,12 +120,14 @@ Fix: `project.mark_different()` declares every key patched in the case, includin
 
 Today (18/10), with the cut lines of [04](04_PLAN_DECISIONS_RISKS.md) §3:
 
-1. Shared detector client (`VISION_LLM_*`, m1-v1 prompt), two new classes and their KB entries ([09](09_MODE2_TWO_MODELS.md) §4).
-2. **Mode 1 P0** on the replay source: monitor, temporal filter, alerts, `/api/live*`, Live page ([08](08_MODE1_LIVE.md)).
-3. **Mode 2 B**: detections at upload, hint to the 26B, agreement rule ([09](09_MODE2_TWO_MODELS.md)).
-4. Serve both models on the MI300X if the droplet is available, otherwise E4B on its own llama-server; state the
-   AMD evidence honestly in the README ([04](04_PLAN_DECISIONS_RISKS.md) R13).
-5. Video and deck on the replay demo; README updated.
+1. ✅ Shared detector client, two new classes and their KB entries.
+2. ✅ Mode 1 P0 on the replay source.
+3. ✅ Mode 2 B with the agreement rule.
+4. **Demo replay folder**: a `nimbus200` recording from the fine-tuning **test** split (on the training machine),
+   copied to the API host and set as `MODE1_REPLAY_DIR`.
+5. **Detector on its own server** (`infra/serve_vision_e4b.sh`, or `infra/serve_vision_e4b_vllm.sh` next to the 26B
+   on the MI300X with `GPU_UTIL=0.75`): on the shared router every switch costs ~1.5 minutes.
+6. Video and deck; README.
 
 After the hackathon:
 

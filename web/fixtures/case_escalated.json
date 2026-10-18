@@ -1,9 +1,9 @@
 {
-  "id": "7f25472994",
+  "id": "e6d55f3457",
   "name": "Motor bracket",
   "state": "escalated",
-  "created_at": "2026-10-18T04:02:29+00:00",
-  "updated_at": "2026-10-18T04:02:29+00:00",
+  "created_at": "2026-10-18T06:56:54+00:00",
+  "updated_at": "2026-10-18T06:56:54+00:00",
   "printer": "Bambu Lab P1S 0.4 nozzle",
   "material": "PLA",
   "process": "0.20mm Standard @BBL X1C",
@@ -12,7 +12,7 @@
     "sliced_3mf": "sliced.3mf",
     "gcode": {
       "layers": 85,
-      "filament_mm": 1449.3,
+      "filament_mm": 1449.2,
       "features": {
         "Bottom surface": {
           "length_mm": 3059.0,
@@ -32,7 +32,7 @@
           "length_mm": 270.4,
           "moves": 26,
           "speed_mm_s": 50.0,
-          "e_per_mm": 0.02816,
+          "e_per_mm": 0.02786,
           "fan_pct": 97.0
         },
         "Inner wall": {
@@ -93,12 +93,12 @@
       "volumetric_p99_mm3_s": 20.58,
       "header": {
         "total layer number": "85",
-        "total filament length [mm]": "1449.26",
+        "total filament length [mm]": "1449.18",
         "total filament weight [g]": "4.39"
       }
     },
-    "print_time_s": 746.014404296875,
-    "slice_elapsed_s": 0.37,
+    "print_time_s": 745.6084594726562,
+    "slice_elapsed_s": 0.34,
     "slicer": "BambuStudio-02.08.02.61",
     "notes": [],
     "filament_g": 4.39
@@ -111,6 +111,7 @@
       "photos": [
         "iter_1/photos/side.jpg"
       ],
+      "detections": [],
       "note": "",
       "diagnosis": {
         "findings": [
@@ -134,7 +135,8 @@
         "model": null,
         "latency_ms": null,
         "note": "",
-        "at": "2026-10-18T04:02:29+00:00",
+        "detector": null,
+        "at": "2026-10-18T06:56:54+00:00",
         "primary_label": "Layer shift",
         "severity": 3,
         "confidence": 1.0
@@ -149,10 +151,10 @@
       "rejected": [],
       "confirmed": null,
       "photo_urls": [
-        "/api/cases/7f25472994/files/iter_1/photos/side.jpg"
+        "/api/cases/e6d55f3457/files/iter_1/photos/side.jpg"
       ],
       "print_file_url": null,
-      "project_url": "/api/cases/7f25472994/files/original.3mf"
+      "project_url": "/api/cases/e6d55f3457/files/original.3mf"
     }
   ],
   "rejected_keys": [],
@@ -178,7 +180,7 @@
       ]
     }
   ],
-  "llm_mode": "llm",
+  "llm_mode": "offline",
   "latest_print_file_url": null,
   "edit_options": []
 }

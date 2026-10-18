@@ -16,7 +16,7 @@ import rejected from '../../fixtures/case_rejected.json'
 import health from '../../fixtures/health.json'
 import taxonomy from '../../fixtures/taxonomy.json'
 import { ApiError, type PrintLoopApi } from './client'
-import type { AuditRow, Case, CaseSummary, Health, RewindStep, Taxonomy } from './types'
+import type { AuditRow, Case, CaseSummary, Health, LiveSession, LiveState, RewindStep, Taxonomy } from './types'
 
 const asCase = (data: unknown) => structuredClone(data) as Case
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -34,9 +34,67 @@ const REWIND: Record<string, unknown> = {
   '2:diagnosis': iter2Ready,
 }
 
+// Mode 1 in fixture mode: a scripted session, one frame per poll (no detector, no frames on disk).
+const LIVE_SCRIPT: string[][] = [[], [], ['stringing'], [], ['spaghetti'], ['spaghetti'], ['spaghetti'], []]
+let live: LiveSession | null = null
+let liveTick = 0
+
+function liveFrame(): void {
+  if (!live || live.status !== 'running') return
+  if (liveTick >= LIVE_SCRIPT.length) {
+    live.status = 'finished'
+    live.ended_at = new Date().toISOString()
+    return
+  }
+  const defects = LIVE_SCRIPT[liveTick]!
+  const id = liveTick.toString(16).padStart(16, '0')
+  const at = new Date().toISOString()
+  live.last = {
+    frame_id: id,
+    name: `${liveTick.toString().padStart(3, '0')}.jpg`,
+    taken_at: at,
+    layer_num: null,
+    progress: null,
+    defects,
+    primary: defects[0] ?? 'none',
+    model: 'printloop-vision-e4b',
+    latency_ms: 740,
+    error: null,
+    frame_url: `/api/live/frames/${live.id}/${id}`,
+  }
+  live.counts.frames += 1
+  defects.forEach((d) => (live!.counts.positives[d] = (live!.counts.positives[d] ?? 0) + 1))
+  if (liveTick === 6) {
+    live.alerts.push({
+      id: 'a1',
+      defect: 'spaghetti',
+      level: 'pause_proposed',
+      since: at,
+      frames: ['4', '5', '6'].map((n) => n.padStart(16, '0')),
+      frame_urls: [],
+      cleared_at: null,
+      dismissed: false,
+      dismiss_reason: '',
+    })
+  }
+  liveTick += 1
+}
+
+function liveSnapshot(): LiveState {
+  return {
+    session: live ? structuredClone(live) : null,
+    running: live?.status === 'running',
+    detector: { mode: 'on', model: 'printloop-vision-e4b', base_url: null },
+    printer: { configured: false, linked: false },
+    defaults: { source: 'replay', replay_dir: 'data/live/demo', interval_s: 10, snapshot_url: null },
+  }
+}
+
 function reset(): void {
   store.clear()
   proposals.clear()
+  live = null
+  liveTick = 0
   const main = asCase(created)
   store.set(main.id, main)
   const other = asCase(escalated)
@@ -157,5 +215,51 @@ export const fixtureApi: PrintLoopApi & { reset: () => void } = {
   },
   async audit() {
     return structuredClone(audit) as AuditRow[]
+  },
+  async live() {
+    await delay(100)
+    liveFrame()
+    return liveSnapshot()
+  },
+  async liveStart(req) {
+    await delay(200)
+    if (live?.status === 'running') throw new ApiError(409, 'a live session is already running: stop it first')
+    liveTick = 0
+    live = {
+      id: 'demo-live',
+      status: 'running',
+      source: { kind: req.source, detail: req.replay_dir ?? req.url ?? 'P1S' },
+      interval_s: req.interval_s ?? 10,
+      record_all: false,
+      case_id: req.case_id ?? null,
+      started_at: new Date().toISOString(),
+      ended_at: null,
+      error: '',
+      thresholds: { pause_k: 3, pause_n: 4, alert_k: 4, alert_n: 6, clear_n: 6 },
+      printer: { linked: false },
+      detector: { model: 'printloop-vision-e4b', calls: 0, errors: 0, latency_p50_ms: 740 },
+      last: null,
+      alerts: [],
+      counts: { frames: 0, skipped: 0, errors: 0, positives: {} },
+    }
+    return structuredClone(live)
+  },
+  async liveStop() {
+    await delay(150)
+    if (live?.status !== 'running') throw new ApiError(409, 'no live session is running')
+    live.status = 'stopped'
+    live.ended_at = new Date().toISOString()
+    return structuredClone(live)
+  },
+  async liveDismiss(alertId, reason) {
+    const alert = live?.alerts.find((a) => a.id === alertId)
+    if (!live || !alert) throw new ApiError(409, `alert ${alertId} not found`)
+    alert.dismissed = true
+    alert.dismiss_reason = reason
+    return structuredClone(live)
+  },
+  async liveAttach(caseId) {
+    await delay(300)
+    return structuredClone(get(caseId))
   },
 }

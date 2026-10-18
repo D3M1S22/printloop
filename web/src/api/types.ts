@@ -7,6 +7,8 @@ export type DefectClass =
   | 'stringing'
   | 'bridge_sagging'
   | 'overhang_curling'
+  | 'layer_separation'
+  | 'blobs'
   | 'warping'
   | 'first_layer'
   | 'layer_shift'
@@ -56,6 +58,23 @@ export interface Finding {
   location: string
 }
 
+/** E4B detector answer for one uploaded photo (09_MODE2_TWO_MODELS.md). */
+export interface PhotoDetection {
+  photo: string
+  defects: string[]
+  primary: string
+  model: string | null
+  latency_ms: number | null
+  error: string | null
+}
+
+export interface DetectorSummary {
+  defects: string[]
+  primary: string
+  agreement: 'agree' | 'disagree' | 'unavailable'
+  photos: number
+}
+
 export interface Diagnosis {
   findings: Finding[]
   primary: DefectClass
@@ -68,6 +87,7 @@ export interface Diagnosis {
   model: string | null
   latency_ms: number | null
   note: string
+  detector: DetectorSummary | null
   at: string
 }
 
@@ -161,6 +181,7 @@ export interface Iteration {
   source_gcode: string
   photos: string[]
   photo_urls: string[]
+  detections: PhotoDetection[]
   note: string
   diagnosis: Diagnosis | null
   proposal: Proposal | null
@@ -236,6 +257,9 @@ export interface Health {
   status: string
   version: string
   llm: { mode: 'llm' | 'offline'; model: string | null; base_url: string | null }
+  vision_llm?: { mode: 'on' | 'off'; model: string | null; base_url: string | null }
+  mode2_detector?: boolean
+  warnings?: string[]
   telemetry: { calls: number; errors: number; latency_p50_ms: number | null; latency_p95_ms: number | null }
   slicer: { available: boolean; version: string | null }
   max_iterations: number
@@ -276,4 +300,69 @@ export interface DecisionRequest {
   reason: string
   edits?: Record<string, number>
   stop?: boolean
+}
+
+// --- Mode 1: live monitoring (docs/printloop/08_MODE1_LIVE.md) ----------------------------------------------
+
+export type LiveSourceKind = 'replay' | 'p1s' | 'url'
+
+export interface LiveDetection {
+  frame_id: string
+  name: string
+  taken_at: string
+  layer_num: number | null
+  progress: number | null
+  defects: string[]
+  primary: string
+  model: string | null
+  latency_ms: number | null
+  error: string | null
+  frame_url?: string
+}
+
+export interface LiveAlert {
+  id: string
+  defect: string
+  level: 'warning' | 'pause_proposed'
+  since: string
+  frames: string[]
+  frame_urls: string[]
+  cleared_at: string | null
+  dismissed: boolean
+  dismiss_reason: string
+}
+
+export interface LiveSession {
+  id: string
+  status: 'running' | 'stopped' | 'finished' | 'error'
+  source: { kind?: LiveSourceKind; detail?: string }
+  interval_s: number
+  record_all: boolean
+  case_id: string | null
+  started_at: string
+  ended_at: string | null
+  error: string
+  thresholds: Record<string, number>
+  printer: { linked: boolean; [key: string]: unknown }
+  detector: { model?: string; calls?: number; errors?: number; latency_p50_ms?: number | null }
+  last: LiveDetection | null
+  alerts: LiveAlert[]
+  counts: { frames: number; skipped: number; errors: number; positives: Record<string, number> }
+}
+
+export interface LiveState {
+  session: LiveSession | null
+  running: boolean
+  detector: { mode: 'on' | 'off'; model: string | null; base_url: string | null }
+  printer: { configured: boolean; linked: boolean }
+  defaults: { source: LiveSourceKind; replay_dir: string | null; interval_s: number; snapshot_url: string | null }
+}
+
+export interface LiveStartRequest {
+  source: LiveSourceKind
+  replay_dir?: string
+  url?: string
+  interval_s?: number
+  case_id?: string
+  record_all?: boolean
 }

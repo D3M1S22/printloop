@@ -115,6 +115,13 @@ defects:
       - {key: initial_layer_speed, direction: down}
       - {key: nozzle_temperature_initial_layer, direction: up}
       - {key: bed_temperature, direction: up}
+  layer_separation:
+    # Weak bonding between layers: a hotter nozzle is the most common fix that the G-code can confirm.
+    candidates:
+      - {key: nozzle_temperature, direction: up}
+  blobs:
+    candidates: []
+    escalate: "Zits and blobs usually come from the seam, retraction/wipe and pressure settings, which PrintLoop cannot verify on the G-code yet: check them in the slicer."
   layer_shift:
     candidates: []
     escalate: "Typically a mechanical cause (belts, pulleys, collisions with the part): the printer needs a manual check."

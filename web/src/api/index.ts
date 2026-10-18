@@ -25,6 +25,11 @@ function lazy(load: () => Promise<PrintLoopApi>): PrintLoopApi {
     confirm: (id, note) => load().then((a) => a.confirm(id, note)),
     rewind: (id, iteration, step) => load().then((a) => a.rewind(id, iteration, step)),
     audit: (id) => load().then((a) => a.audit(id)),
+    live: () => load().then((a) => a.live()),
+    liveStart: (req) => load().then((a) => a.liveStart(req)),
+    liveStop: () => load().then((a) => a.liveStop()),
+    liveDismiss: (alertId, reason) => load().then((a) => a.liveDismiss(alertId, reason)),
+    liveAttach: (caseId, sessionId) => load().then((a) => a.liveAttach(caseId, sessionId)),
   }
 }
 

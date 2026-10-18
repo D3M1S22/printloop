@@ -2,9 +2,9 @@
   "status": "ok",
   "version": "0.1.0",
   "llm": {
-    "mode": "llm",
-    "model": "Gemma-4-26B-Vision-Q3",
-    "base_url": "http://192.168.1.159:8080/v1"
+    "mode": "offline",
+    "model": null,
+    "base_url": null
   },
   "telemetry": {
     "calls": 0,
@@ -14,6 +14,21 @@
     "latency_p50_ms": null,
     "latency_p95_ms": null
   },
+  "vision_llm": {
+    "mode": "off",
+    "model": null,
+    "base_url": null
+  },
+  "vision_telemetry": {
+    "calls": 0,
+    "errors": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "latency_p50_ms": null,
+    "latency_p95_ms": null
+  },
+  "mode2_detector": false,
+  "warnings": [],
   "slicer": {
     "available": true,
     "version": "OrcaSlicer-2.4.2",

@@ -35,7 +35,7 @@ src/
 │   ├── index.ts        # picks http or fixtures from the Vite mode
 │   └── hooks.ts        # TanStack Query: queries and mutations (mutations write the case to the cache)
 ├── components/         # ui (primitives, ConfirmButton), Photos, Diagnosis, PatchReview, DecisionPanel, History, LoopStepper, …
-├── pages/              # CasesPage (list + new case), CasePage (one panel per state)
+├── pages/              # CasesPage (list + new case), CasePage (one panel per state), LivePage (Mode 1)
 ├── lib/                # formatting (en-US), loop steps and rewind targets
 ├── routes.tsx · App.tsx · main.tsx · queryClient.ts
 └── styles.css          # design tokens on :root, automatic dark theme, no external fonts
@@ -46,6 +46,11 @@ src/
 - **The backend owns the case state:** the UI shows the panel for `state` and the buttons in `allowed_actions`, without duplicating the state machine. The steps the case can go back to also come from the backend (`rewind_targets`).
 - **Closing a case:** after an approved patch, "✓ Reprint OK" closes the case as fixed in one click, from the case page or straight from the case list. "No defect" is not in the defect menu.
 - **Going back:** "↶ Step back" in the header, any completed step of the stepper, or "Back to this iteration" in the history. An inline panel says what is discarded before going back; the backend archives the discarded photos and slices under `discarded/` in the case folder instead of deleting them.
+- **Live monitoring (Mode 1):** the "Live" page starts a session (replay folder, P1S camera or snapshot URL), polls
+  `/api/live` every 2 s while it runs, shows the latest frame with the detector's classes, the alerts with their
+  evidence frames, and after the print attaches the evidence to a case or offers "Reprint OK" on the linked case.
+- **Two models in Mode 2:** each photo shows the detector's labels ("E4B: stringing"), the diagnosis shows whether
+  the 26B agrees, and on a disagreement the manual form opens with both candidates as one-click picks.
 - **Deleting:** "Delete" on each row of the list and "Delete case" on the case page, both with an inline confirmation (no modal). This removes the whole case folder.
 - **Server state with TanStack Query:** no global store. Each mutation returns the updated case and writes it to the `['case', id]` cache.
 - **Long operations** (slicing and verification, 2–10 s; Gemma diagnosis): busy button plus a `role="status"` message.

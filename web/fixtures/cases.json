@@ -1,27 +1,27 @@
 [
   {
-    "id": "0f422d0b93",
+    "id": "28b3ab793f",
     "name": "Bridge test",
     "state": "done",
     "outcome": "fixed",
     "iteration": 2,
     "printer": "Bambu Lab P1S 0.4 nozzle",
     "material": "PLA",
-    "updated_at": "2026-10-18T04:02:29+00:00",
+    "updated_at": "2026-10-18T06:56:54+00:00",
     "defect": null,
     "allowed_actions": [
       "rewind"
     ]
   },
   {
-    "id": "7f25472994",
+    "id": "e6d55f3457",
     "name": "Motor bracket",
     "state": "escalated",
     "outcome": "escalated",
     "iteration": 1,
     "printer": "Bambu Lab P1S 0.4 nozzle",
     "material": "PLA",
-    "updated_at": "2026-10-18T04:02:29+00:00",
+    "updated_at": "2026-10-18T06:56:54+00:00",
     "defect": "layer_shift",
     "allowed_actions": [
       "rewind"

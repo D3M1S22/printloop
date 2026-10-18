@@ -25,6 +25,14 @@ DEFECTS: dict[str, dict[str, str]] = {
         "label": "Curling overhangs",
         "description": "Edges of angled overhangs curl upwards, look rough or drooped on the underside.",
     },
+    "layer_separation": {
+        "label": "Layer separation",
+        "description": "Cracks or gaps between layers; layers split apart or delaminate.",
+    },
+    "blobs": {
+        "label": "Blobs / zits",
+        "description": "Small zits, blobs or pimples of plastic on the surface of walls.",
+    },
     "warping": {
         "label": "Warping / detachment",
         "description": "Corners or edges lifted from the bed, bottom not flat, part detached during the print.",

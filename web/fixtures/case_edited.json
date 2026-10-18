@@ -1,9 +1,9 @@
 {
-  "id": "0f422d0b93",
+  "id": "28b3ab793f",
   "name": "Bridge test",
   "state": "awaiting_approval",
-  "created_at": "2026-10-18T04:02:28+00:00",
-  "updated_at": "2026-10-18T04:02:29+00:00",
+  "created_at": "2026-10-18T06:56:53+00:00",
+  "updated_at": "2026-10-18T06:56:54+00:00",
   "printer": "Bambu Lab P1S 0.4 nozzle",
   "material": "PLA",
   "process": "0.20mm Standard @BBL X1C",
@@ -12,7 +12,7 @@
     "sliced_3mf": "sliced.3mf",
     "gcode": {
       "layers": 85,
-      "filament_mm": 1449.2,
+      "filament_mm": 1449.1,
       "features": {
         "Bottom surface": {
           "length_mm": 3059.0,
@@ -31,8 +31,8 @@
         "Floating vertical shell": {
           "length_mm": 270.4,
           "moves": 26,
-          "speed_mm_s": 100.0,
-          "e_per_mm": 0.02786,
+          "speed_mm_s": 129.03,
+          "e_per_mm": 0.02771,
           "fan_pct": 99.0
         },
         "Inner wall": {
@@ -93,12 +93,12 @@
       "volumetric_p99_mm3_s": 20.58,
       "header": {
         "total layer number": "85",
-        "total filament length [mm]": "1449.18",
+        "total filament length [mm]": "1449.14",
         "total filament weight [g]": "4.39"
       }
     },
-    "print_time_s": 703.5969848632812,
-    "slice_elapsed_s": 0.37,
+    "print_time_s": 703.427001953125,
+    "slice_elapsed_s": 0.34,
     "slicer": "BambuStudio-02.08.02.61",
     "notes": [],
     "filament_g": 4.39
@@ -112,6 +112,7 @@
         "iter_1/photos/front.jpg",
         "iter_1/photos/macro.jpg"
       ],
+      "detections": [],
       "note": "the bridges sag in the middle",
       "diagnosis": {
         "findings": [
@@ -139,7 +140,8 @@
         "model": null,
         "latency_ms": null,
         "note": "the bridges sag in the middle",
-        "at": "2026-10-18T04:02:28+00:00",
+        "detector": null,
+        "at": "2026-10-18T06:56:53+00:00",
         "primary_label": "Sagging bridges",
         "severity": 3,
         "confidence": 1.0
@@ -166,7 +168,7 @@
         "model": null,
         "latency_ms": null,
         "rejected_attempts": [],
-        "at": "2026-10-18T04:02:29+00:00"
+        "at": "2026-10-18T06:56:54+00:00"
       },
       "validation": {
         "ok": true,
@@ -251,7 +253,7 @@
         ],
         "side_effects": {
           "print_time_s": [
-            703.6,
+            703.4,
             706.6
           ],
           "filament_g": [
@@ -270,7 +272,7 @@
         "sliced_3mf": "sliced.3mf",
         "gcode": "plate_1.gcode",
         "print_time_s": 706.55126953125,
-        "slice_elapsed_s": 0.37,
+        "slice_elapsed_s": 0.34,
         "slicer": "BambuStudio-02.08.02.61",
         "notes": []
       },
@@ -299,19 +301,19 @@
             "model": null,
             "latency_ms": null,
             "rejected_attempts": [],
-            "at": "2026-10-18T04:02:28+00:00"
+            "at": "2026-10-18T06:56:53+00:00"
           },
           "reason": "trying the fan first",
-          "at": "2026-10-18T04:02:28+00:00"
+          "at": "2026-10-18T06:56:53+00:00"
         }
       ],
       "confirmed": null,
       "photo_urls": [
-        "/api/cases/0f422d0b93/files/iter_1/photos/front.jpg",
-        "/api/cases/0f422d0b93/files/iter_1/photos/macro.jpg"
+        "/api/cases/28b3ab793f/files/iter_1/photos/front.jpg",
+        "/api/cases/28b3ab793f/files/iter_1/photos/macro.jpg"
       ],
-      "print_file_url": "/api/cases/0f422d0b93/files/iter_1/edit_1/slice/sliced.3mf",
-      "project_url": "/api/cases/0f422d0b93/files/original.3mf"
+      "print_file_url": "/api/cases/28b3ab793f/files/iter_1/edit_1/slice/sliced.3mf",
+      "project_url": "/api/cases/28b3ab793f/files/original.3mf"
     }
   ],
   "rejected_keys": [
@@ -355,7 +357,7 @@
       ]
     }
   ],
-  "llm_mode": "llm",
+  "llm_mode": "offline",
   "latest_print_file_url": null,
   "edit_options": [
     {

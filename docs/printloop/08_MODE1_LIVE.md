@@ -1,6 +1,10 @@
 # 08. Mode 1: live monitoring (implementation spec)
 
-> Written on 18 Oct 2026. Status: **designed, not implemented.** This is the spec to build Mode 1 from.
+> Written on 18 Oct 2026. Status (18/10, 09:00): **P0 implemented** (replay source, monitor, filter, API, Live page,
+> `printloop live replay`), plus the P1S camera and snapshot-URL sources (the P1S one is tested on synthetic bytes, not
+> on a printer yet). **Not implemented:** MQTT status and `print.pause`, a new case from a session. Verified end to
+> end with the real E4B (`Gemma-4-E4B-3dPrint-v1-Q8` on llama.cpp): ~0.74 s per frame, warning raised at the 4th
+> consistent frame.
 > The detector model (contract, prompt, results, serving) is in [07_VISION_MODEL.md](07_VISION_MODEL.md); this
 > document covers everything around it. Plan and cut lines for today: [04](04_PLAN_DECISIONS_RISKS.md) §3.
 
@@ -206,12 +210,12 @@ phone photos before the diagnosis.
 
 | Method | Path | Body | Result |
 | :-- | :-- | :-- | :-- |
-| `GET` | `/api/live` | — | current session (or `null`), detector and printer link status |
+| `GET` | `/api/live` | — | `{session, running, detector, printer: {configured, linked}, defaults}`; `session` is the current or last one, or `null` |
 | `POST` | `/api/live/start` | `{"source": "replay"\|"p1s"\|"url", "replay_dir"?, "url"?, "interval_s"?, "case_id"?, "record_all"?}` | session (`running`); `409` if one is already running or the source is not configured |
 | `POST` | `/api/live/stop` | — | session (`stopped`) |
 | `POST` | `/api/live/alerts/{alert_id}/dismiss` | `{"reason"?}` | session. The class can raise again later |
-| `POST` | `/api/live/pause` | `{"alert_id"?}` | session. Sends `print.pause` (P2); `409` without a printer link |
-| `POST` | `/api/live/attach` | `{"case_id"?, "frames"?: [frame_id]}` | **Case**: evidence frames uploaded as photos of its current iteration |
+| `POST` | `/api/live/pause` | — | **not implemented**: always `409` ("pause the print on the printer") until the MQTT link exists |
+| `POST` | `/api/live/attach` | `{"case_id"?, "session_id"?, "frames"?: [frame_id]}` | **Case**: up to 4 evidence frames uploaded as photos of its current iteration (default: the linked case, the current session, the alerts' newest frames) |
 | `GET` | `/api/live/sessions` | — | past sessions (id, start, end, source, alerts, linked case) |
 | `GET` | `/api/live/sessions/{id}` | — | session with its detections (`?detections=1`) |
 | `DELETE` | `/api/live/sessions/{id}` | — | `{"deleted": id}` |
@@ -246,7 +250,7 @@ The UI polls `GET /api/live` every 2 s while a session runs (no WebSocket needed
 VISION_LLM_BASE_URL=http://localhost:8082/v1     # infra/serve_vision_e4b.sh (port 8082); vLLM on MI300X: :8001
 VISION_LLM_MODEL=printloop-vision-e4b            # alias of serve_vision_e4b.sh / vLLM; router preset: Gemma-4-E4B-3dPrint-v1-Q8
 VISION_LLM_API_KEY=
-VISION_LLM_TIMEOUT_S=15
+VISION_LLM_TIMEOUT_S=30                           # the first call after a model swap on a router can take longer
 
 # Mode 1
 MODE1_SOURCE=replay              # replay | p1s | url
@@ -273,7 +277,7 @@ detector its own server (`infra/serve_vision_e4b.sh`, ~10 GB VRAM in Q8_0) or ru
 
 1. Record prints with `record_all` (normal prints and the induced-defect coupons of
    [02_DATA_STRATEGY](02_DATA_STRATEGY.md) §3), and label a sample of frames (`frame_id,defects` CSV).
-2. `printloop live replay <dir> --report` runs the full pipeline (detector + filter + policy) on a recorded folder
+2. `printloop live replay <dir> [--labels frames.csv] [-v]` runs the full pipeline (detector + filter + policy) on a recorded folder
    without the UI and prints: per-frame accuracy against the labels, alerts raised, **false alerts per print**, and
    **time to alert** (from the first labelled defective frame to the alert).
 3. Tune k/n per group on those numbers; record the chosen values in [04](04_PLAN_DECISIONS_RISKS.md).
@@ -287,15 +291,17 @@ detector its own server (`infra/serve_vision_e4b.sh`, ~10 GB VRAM in Q8_0) or ru
 ```text
 src/printloop/live/
 ├── sources.py     # Frame, ReplaySource, P1SCameraSource, SnapshotSource
-├── printer.py     # MQTT read-only status + pause (paho-mqtt, TLS, self-signed printer certificate)
-├── detector.py    # m1-v1 prompt and schema, client on VISION_LLM_*, own telemetry
+├── printer.py     # NOT YET: MQTT read-only status + pause (paho-mqtt, TLS, self-signed printer certificate)
+│                  # (the detector client is src/printloop/detector.py, shared with Mode 2)
 ├── policy.py      # sliding windows, alert levels, clearing, layer gating (pure functions: easy to test)
 └── monitor.py     # thread, ticks, session on disk, attach to case
 ```
 
 Plus: `models.py` (`LiveDetection`, `LiveAlert`, `LiveSession`), `config.py` (`VisionLLMConfig`, `Mode1Config`),
-`api.py` (`/api/live*`), `cli.py` (`printloop live start|replay`), `web/src/pages/LivePage.tsx` and a "Live" link in
-the top bar. New dependency for P1/P2: `paho-mqtt`.
+`api.py` (`/api/live*`), `cli.py` (`printloop live replay`), `web/src/pages/LivePage.tsx` and a "Live" link in
+the top bar. Tests: `tests/test_live.py` (policy, sources, P1S protocol, monitor, API), `tests/test_detector.py`
+(prompt identical to `finetune/`), `web/src/pages/LivePage.test.tsx`. Dependency still to add for the MQTT link:
+`paho-mqtt`.
 
 Tests (no network): policy with scripted answer sequences (raise, clear, gating, dismiss); replay source order;
 P1S frame parser on synthetic bytes (header + JPEG, split reads); monitor with a fake detector (skip when busy,

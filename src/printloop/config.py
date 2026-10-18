@@ -46,6 +46,45 @@ class LLMConfig:
 
 
 @dataclass(frozen=True)
+class VisionLLMConfig:
+    """Defect detector: Gemma 4 E4B fine-tuned (docs/printloop/07_VISION_MODEL.md), used by Mode 1 and Mode 2."""
+    base_url: str | None = _env("VISION_LLM_BASE_URL")
+    api_key: str | None = _env("VISION_LLM_API_KEY")
+    model: str = _env("VISION_LLM_MODEL", "printloop-vision-e4b")
+    # Short: a late answer is useless for a live frame. The first call after a model swap can take longer.
+    timeout_s: float = float(_env("VISION_LLM_TIMEOUT_S", "30"))
+    max_tokens: int = 64
+    max_image_px: int = 1280    # long side of the training images (finetune prepare step)
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.base_url) and "<" not in (self.base_url or "")
+
+
+def _flag(name: str, default: bool) -> bool:
+    value = _env(name)
+    return default if value is None else value.strip().lower() in ("1", "true", "yes", "on")
+
+
+@dataclass(frozen=True)
+class Mode1Config:
+    """Live monitoring (docs/printloop/08_MODE1_LIVE.md)."""
+    source: str = _env("MODE1_SOURCE", "replay")
+    replay_dir: str | None = _env("MODE1_REPLAY_DIR")
+    snapshot_url: str | None = _env("MODE1_SNAPSHOT_URL")
+    interval_s: float = float(_env("MODE1_INTERVAL_S", "10"))
+    pause_k: int = int(_env("MODE1_PAUSE_K", "3"))
+    pause_n: int = int(_env("MODE1_PAUSE_N", "4"))
+    alert_k: int = int(_env("MODE1_ALERT_K", "4"))
+    alert_n: int = int(_env("MODE1_ALERT_N", "6"))
+    clear_n: int = int(_env("MODE1_CLEAR_N", "6"))
+    record_all: bool = _flag("MODE1_RECORD_ALL", False)
+    printer_ip: str | None = _env("PRINTER_IP")
+    printer_serial: str | None = _env("PRINTER_SERIAL")
+    printer_access_code: str | None = _env("PRINTER_ACCESS_CODE")
+
+
+@dataclass(frozen=True)
 class LoopConfig:
     runs_dir: Path = Path(_env("PRINTLOOP_RUNS_DIR", str(ROOT / "runs")))
     max_iterations: int = int(_env("PRINTLOOP_MAX_ITERATIONS", "3"))
@@ -57,6 +96,8 @@ class LoopConfig:
     max_changes: int = 2
     # Automatic proposal attempts when the validator or the pre-flight reject.
     propose_attempts: int = 3
+    # Mode 2: the E4B detector labels each uploaded photo and the 26B gets the labels as a hint (09_MODE2_TWO_MODELS.md).
+    detector: bool = _flag("MODE2_DETECTOR", True)
 
 
 def _find(candidate: str) -> str | None:
@@ -89,4 +130,6 @@ def slicer_bin(kind: str | None = None) -> str | None:
 
 
 LLM = LLMConfig()
+VISION_LLM = VisionLLMConfig()
+MODE1 = Mode1Config()
 LOOP = LoopConfig()

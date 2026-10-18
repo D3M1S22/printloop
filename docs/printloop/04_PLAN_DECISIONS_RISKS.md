@@ -51,6 +51,10 @@ and submission. Two people: backend/ML and frontend. Estimates include tests.
 | **11:15** | **code freeze** | | |
 | 11:15–12:00 | README (Mode 1, two models, AMD evidence stated honestly), deck, submission | video | — |
 
+**Progress at 09:00:** P0 done (Mode 1 on replay with the Live page, Mode 2 B, shared detector client), both
+verified with the real models; also written: P1S camera and snapshot-URL sources. Left: the demo replay folder,
+a dedicated detector server, video and README.
+
 ### Cut lines for today
 - **P0:** shared detector client; Mode 1 on the replay source with alerts and the Live page; Mode 2 B with the
   agreement rule; tests for policy and agreement matrix.
@@ -124,7 +128,7 @@ and submission. Two people: backend/ML and frontend. Estimates include tests.
 | R10 | The team splits between two projects | M | High | a clear decision at 10:00 on Saturday, no parallel work on both |
 | R11 | **Time on 18/10**: Mode 1 and Mode 2 B in ~2.5 hours of coding | H | **High** | cut lines §3; Mode 1 on replay first; freeze at 11:15 |
 | R12 | The detector has **never seen P1S chamber frames**: unknown false alerts on the real printer | H | Medium | temporal filter, pause only on click, tune on recorded prints ([08](08_MODE1_LIVE.md) §10); say so in the demo |
-| R13 | **No AMD measurement of the E4B** (training on CUDA, serving on a V100) | H | **High** for the AMD prize | serve both models on the MI300X with vLLM if the droplet is up, or run `finetune` `smoke` + `eval` there; otherwise state it plainly in the README |
+| R13 | **No AMD measurement of the E4B yet** (MI300X recipe ready, not run) | H | **High** for the AMD prize | serve both models on the MI300X with vLLM if the droplet is up, or run `finetune` `smoke` + `eval` there; otherwise state it plainly in the README |
 | R14 | Mode 1 and Mode 2 on one single-model llama.cpp router evict each other | M | Medium | separate E4B server (P-21); health warning |
 | R15 | Demo replay comes from a public dataset used for training | M | Medium | pick a recording from the **test** split (never seen) and cite the dataset; switch to a P1S recording when one exists |
 | R16 | The app's copy of the m1-v1 prompt drifts from `finetune/` | L | Medium | unit test comparing the strings; `PROMPT_VERSION` in every detection row |

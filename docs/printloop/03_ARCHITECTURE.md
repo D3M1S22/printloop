@@ -8,8 +8,9 @@ The LLM classifies and explains. The numbers of the patch (ranges, steps, limits
 
 ## 2. Components
 
-Two models, two modes. **Mode 2** (after the print, implemented) fixes the preset; **Mode 1** (during the print,
-planned: [08](08_MODE1_LIVE.md)) watches the camera and feeds Mode 2 with evidence. Dashed: planned.
+Two models, two modes. **Mode 2** (after the print) fixes the preset; **Mode 1** (during the print,
+[08](08_MODE1_LIVE.md)) watches the camera and feeds Mode 2 with evidence. Both implemented; dashed: the paths added
+on 18/10.
 
 ```mermaid
 flowchart TD
@@ -172,7 +173,7 @@ Formats verified on real BambuStudio 2.8.2 G-code (spike S2): `; FEATURE: Bridge
 
 Implementation: effect threshold `MIN_EFFECT` = 25% of the change set, volumetric flow at the length-weighted p99. A limit fails only if the patch makes it worse: if it was already exceeded before, it passes with a note.
 
-## 6. Mode 1 (planned)
+## 6. Mode 1 (implemented on replay, 18/10)
 
 Spec: [08_MODE1_LIVE.md](08_MODE1_LIVE.md). It replaces the first draft that sent a frame to the 26B every ~30 s
 with a reduced taxonomy: the per-frame model is the fine-tuned **Gemma 4 E4B** ([07](07_VISION_MODEL.md)), one frame
@@ -199,15 +200,16 @@ src/printloop/
 ├── preflight.py     # propagation, effect on the toolpath, limits
 ├── models.py        # pydantic contracts (Case, Diagnosis, Proposal, Preflight, …)
 ├── llm.py           # OpenAI-compatible client with images (adapted from MarginSwarm)
-├── diagnose.py      # Gemma (JSON schema) or operator; planned: E4B labels as a hint + agreement rule (09)
+├── diagnose.py      # Gemma (JSON schema) or operator; E4B labels as a hint + agreement rule (09)
 ├── propose.py       # rule-based or Gemma proposal, among the filtered candidates
 ├── validate.py      # deterministic validator
 ├── loop.py          # state machine, confirm, rewind, cases on disk, JSONL audit
-├── live/            # planned, Mode 1: sources, printer (MQTT), detector, policy, monitor (08 §11)
+├── detector.py      # fine-tuned E4B client (m1-v1 prompt), shared by Mode 1 and Mode 2
+├── live/            # Mode 1: sources (replay, P1S, URL), policy (k-of-n), monitor (thread, session on disk)
 ├── api.py · cli.py  # FastAPI :8788 and the `printloop` CLI
 ├── testset.py       # coupon and cases with induced defects
 ├── eval.py · bench.py
-infra/               # serve_gemma_vision.sh (26B, vLLM MI300X), serve_vision_e4b.sh (E4B detector, llama.cpp), serve_local_llama.sh (Radeon)
+infra/               # serve_gemma_vision.sh (26B, vLLM MI300X), serve_vision_e4b.sh (E4B, llama.cpp), serve_vision_e4b_vllm.sh (E4B, vLLM MI300X), serve_local_llama.sh
 finetune/            # separate component: LoRA fine-tuning of the E4B detector (MI300X recipe), not imported by the app
 examples/coupon/     # coupon 3MF project (our model, P1S + PLA system presets)
 web/fixtures/        # real API replies for the frontend

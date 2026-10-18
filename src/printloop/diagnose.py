@@ -7,10 +7,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from printloop import llm
+from printloop import detector, llm
 from printloop.config import LLM
-from printloop.models import Diagnosis, Evidence, Finding
-from printloop.taxonomy import DEFECT_CLASSES, DEFECTS, SEVERITY_PROMPT
+from printloop.models import DetectorSummary, Diagnosis, Evidence, Finding, PhotoDetection
+from printloop.taxonomy import DEFECT_CLASSES, DEFECTS, SEVERITY_PROMPT, label
 
 SYSTEM_PROMPT = f"""You are the visual inspector of PrintLoop, a tool that fixes FDM 3D-printing defects by patching slicer presets.
 You receive 1-4 photos of ONE printed part, plus context from the operator.
@@ -96,11 +96,58 @@ def sanitize(raw: dict) -> dict:
             "question_for_operator": str(raw.get("question_for_operator") or "")}
 
 
+def detector_hint(detections: list[PhotoDetection]) -> str | None:
+    """Text block for the 26B with the E4B labels per photo (09_MODE2_TWO_MODELS.md §2)."""
+    ok = [d for d in detections if d.error is None]
+    if not ok:
+        return None
+    lines = [f"- {Path(d.photo).name}: {', '.join(d.defects) if d.defects else 'no defect'}" for d in ok]
+    return ("A defect classifier fine-tuned on FDM print photos labelled each photo:\n" + "\n".join(lines) + "\n"
+            "It names defects well but cannot judge severity or cause. Use it as a strong hint: confirm each label "
+            "against the photos, report the defects you can actually see, and assign severity and evidence yourself.")
+
+
+def summarize(detections: list[PhotoDetection]) -> DetectorSummary | None:
+    if not detections:
+        return None
+    ok = [d for d in detections if d.error is None]
+    if not ok:
+        return DetectorSummary(agreement="unavailable")
+    union = detector.sort({c for d in ok for c in d.defects})
+    return DetectorSummary(defects=union, primary=union[0] if union else "none", agreement="agree", photos=len(ok))
+
+
+def apply_detector(diag: Diagnosis, detections: list[PhotoDetection], accept_severity: int) -> Diagnosis:
+    """Agreement rule (09_MODE2_TWO_MODELS.md §3): a model diagnosis that disagrees with the detector goes to the operator."""
+    summary = summarize(detections)
+    diag.detector = summary
+    if summary is None or summary.agreement == "unavailable":
+        return diag
+    if summary.defects:
+        agree = diag.primary in summary.defects
+    else:
+        agree = diag.primary == "none" or diag.severity <= accept_severity
+    summary.agreement = "agree" if agree else "disagree"
+    if not agree and diag.source == "llm":
+        diag.needs_more_info = True
+        inspector = "no defect" if diag.primary == "none" else label(diag.primary)
+        if summary.defects:
+            seen = ", ".join(label(d) for d in summary.defects)
+            diag.question_for_operator = (f"The detector reports {seen}, the inspector reports {inspector}: "
+                                          "pick the defect (or replace the photos).")
+        else:
+            diag.question_for_operator = (f"The detector saw no defect, the inspector reports {inspector}: "
+                                          "confirm the defect or close the case.")
+    return diag
+
+
 def diagnose_llm(photos: list[Path], printer: str | None = None, material: str | None = None, note: str = "",
-                 previous: Diagnosis | None = None) -> Diagnosis:
+                 previous: Diagnosis | None = None, hint: str | None = None) -> Diagnosis:
     if not photos:
         raise ValueError("1 to 4 photos of the part are required")
     content: list[dict] = [{"type": "text", "text": _context(printer, material, note, previous)}]
+    if hint:
+        content.append({"type": "text", "text": hint})
     for photo in photos:
         content.append({"type": "text", "text": f"Photo: {photo.name}"})
         content.append(llm.image_part(photo))

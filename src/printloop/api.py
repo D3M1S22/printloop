@@ -16,8 +16,9 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from printloop import __version__, kb, llm, loop, project, slicer
-from printloop.config import LOOP, ROOT, slicer_bins
-from printloop.models import Case
+from printloop.config import LLM, LOOP, MODE1, ROOT, VISION_LLM, slicer_bins
+from printloop.live import monitor as live
+from printloop.models import Case, LiveSession
 from printloop.project import ProjectError
 from printloop.taxonomy import DEFECTS, SEVERITY, label
 
@@ -138,9 +139,19 @@ class RewindRequest(BaseModel):
     actor: str = "operator"
 
 
+def _warnings() -> list[str]:
+    out = []
+    if VISION_LLM.enabled and LLM.enabled and VISION_LLM.base_url == LLM.base_url:
+        out.append("The detector and the 26B share one server: on a llama.cpp router that keeps one model loaded, "
+                   "every switch reloads a model (tens of seconds). Give the detector its own server for Mode 1.")
+    return out
+
+
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok", "version": __version__, "llm": llm.describe(), "telemetry": llm.TELEMETRY.snapshot(),
+            "vision_llm": llm.describe_vision(), "vision_telemetry": llm.VISION_TELEMETRY.snapshot(),
+            "mode2_detector": loop.detector_enabled(), "warnings": _warnings(),
             "slicer": {"available": slicer.available(), "version": slicer.version(),
                        "installed": {k: slicer.version(b) for k, b in slicer_bins().items()}},
             "max_iterations": LOOP.max_iterations, "min_confidence": LOOP.min_confidence}
@@ -238,6 +249,120 @@ def case_file(case_id: str, rel: str) -> FileResponse:
     if path.suffix == ".3mf":  # descriptive download name: printloop_<case>_iter_1_attempt_1_sliced.3mf
         return FileResponse(path, filename=f"printloop_{case_id}_{rel.replace('/slice/', '_').replace('/', '_')}")
     return FileResponse(path)
+
+
+# --- Mode 1: live monitoring (docs/printloop/08_MODE1_LIVE.md) ------------------------------------------------
+
+class LiveStartRequest(BaseModel):
+    source: Literal["replay", "p1s", "url"] | None = None
+    replay_dir: str | None = None
+    url: str | None = None
+    interval_s: float | None = Field(None, ge=1, le=600)
+    case_id: str | None = None
+    record_all: bool | None = None
+
+
+class LiveDismissRequest(BaseModel):
+    reason: str = ""
+
+
+class LiveAttachRequest(BaseModel):
+    case_id: str | None = None
+    session_id: str | None = None
+    frames: list[str] | None = None
+
+
+def live_view(session: LiveSession | None, with_detections: bool = False) -> dict | None:
+    if session is None:
+        return None
+    data = session.model_dump()
+    base = f"/api/live/frames/{session.id}/"
+    if session.last:
+        data["last"]["frame_url"] = base + session.last.frame_id
+    for alert_view, alert in zip(data["alerts"], session.alerts):
+        alert_view["frame_urls"] = [base + f for f in alert.frames]
+    if with_detections:
+        data["detections"] = live.detections(session.id)
+    return data
+
+
+def _live(fn, *args, **kwargs):
+    try:
+        return fn(*args, **kwargs)
+    except ValueError as exc:  # LiveError, or a frame source that cannot be opened
+        raise HTTPException(409, str(exc)) from exc
+    except KeyError as exc:
+        raise HTTPException(404, f"not found: {exc}") from exc
+
+
+@app.get("/api/live")
+def live_state() -> dict:
+    return {"session": live_view(live.MONITOR.snapshot()), "running": live.MONITOR.running,
+            "detector": llm.describe_vision(),
+            "printer": {"configured": bool(MODE1.printer_ip and MODE1.printer_access_code), "linked": False},
+            "defaults": {"source": MODE1.source, "replay_dir": MODE1.replay_dir, "interval_s": MODE1.interval_s,
+                         "snapshot_url": MODE1.snapshot_url}}
+
+
+@app.post("/api/live/start")
+def live_start(req: LiveStartRequest) -> dict:
+    if req.case_id:
+        _get(req.case_id)
+    return live_view(_live(live.MONITOR.start, req.source, req.replay_dir, req.url, req.interval_s, req.case_id,
+                           req.record_all))
+
+
+@app.post("/api/live/stop")
+def live_stop() -> dict:
+    return live_view(_live(live.MONITOR.stop))
+
+
+@app.post("/api/live/alerts/{alert_id}/dismiss")
+def live_dismiss(alert_id: str, req: LiveDismissRequest | None = None) -> dict:
+    return live_view(_live(live.MONITOR.dismiss, alert_id, (req or LiveDismissRequest()).reason))
+
+
+@app.post("/api/live/pause")
+def live_pause() -> dict:
+    raise HTTPException(409, "pausing over MQTT is not implemented yet: pause the print on the printer")
+
+
+@app.post("/api/live/attach")
+def live_attach(req: LiveAttachRequest) -> dict:
+    """Evidence frames of a session -> photos of the current iteration of a case (default: the linked case)."""
+    current = live.MONITOR.snapshot()
+    session_id = req.session_id or (current.id if current else None)
+    if not session_id:
+        raise HTTPException(409, "no live session")
+    session = current if current and current.id == session_id else _live(live.load_session, session_id)
+    case_id = req.case_id or session.case_id
+    if not case_id:
+        raise HTTPException(409, "pick the case to attach the evidence to")
+    files = _live(live.MONITOR.evidence, session_id, req.frames)
+    return _run(loop.add_photos, case_id, files, f"Mode 1 evidence (live session {session_id})")
+
+
+@app.get("/api/live/sessions")
+def live_sessions() -> list[dict]:
+    return [{"id": s.id, "status": s.status, "source": s.source, "started_at": s.started_at, "ended_at": s.ended_at,
+             "case_id": s.case_id, "frames": s.counts.get("frames", 0),
+             "alerts": [{"defect": a.defect, "level": a.level} for a in s.alerts]} for s in live.list_sessions()]
+
+
+@app.get("/api/live/sessions/{session_id}")
+def live_session(session_id: str, detections: bool = False) -> dict:
+    return live_view(_live(live.load_session, session_id), with_detections=detections)
+
+
+@app.delete("/api/live/sessions/{session_id}")
+def live_delete(session_id: str) -> dict:
+    _live(live.delete_session, live.MONITOR, session_id)
+    return {"deleted": session_id}
+
+
+@app.get("/api/live/frames/{session_id}/{frame_id}")
+def live_frame(session_id: str, frame_id: str) -> FileResponse:
+    return FileResponse(_live(live.frame_path, session_id, frame_id), media_type="image/jpeg")
 
 
 # The frontend build (web/dist) is served by the same app: one process is enough for the demo. SPA fallback.

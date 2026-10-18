@@ -5,6 +5,9 @@ import type {
   DecisionRequest,
   DiagnoseRequest,
   Health,
+  LiveSession,
+  LiveStartRequest,
+  LiveState,
   RewindStep,
   Taxonomy,
 } from './types'
@@ -41,6 +44,11 @@ export interface PrintLoopApi {
   decide(id: string, req: DecisionRequest): Promise<Case>
   confirm(id: string, note: string): Promise<Case>
   rewind(id: string, iteration: number, step: RewindStep): Promise<Case>
+  live(): Promise<LiveState>
+  liveStart(req: LiveStartRequest): Promise<LiveSession>
+  liveStop(): Promise<LiveSession>
+  liveDismiss(alertId: string, reason: string): Promise<LiveSession>
+  liveAttach(caseId: string, sessionId?: string): Promise<Case>
   audit(id: string): Promise<AuditRow[]>
 }
 
@@ -108,4 +116,10 @@ export const httpApi: PrintLoopApi = {
   confirm: (id, note) => request(`/api/cases/${encodeURIComponent(id)}/confirm`, json({ note })),
   rewind: (id, iteration, step) => request(`/api/cases/${encodeURIComponent(id)}/rewind`, json({ iteration, step })),
   audit: (id) => request(`/api/cases/${encodeURIComponent(id)}/audit`),
+  live: () => request('/api/live'),
+  liveStart: (req) => request('/api/live/start', json(req)),
+  liveStop: () => request('/api/live/stop', { method: 'POST' }),
+  liveDismiss: (alertId, reason) =>
+    request(`/api/live/alerts/${encodeURIComponent(alertId)}/dismiss`, json({ reason })),
+  liveAttach: (caseId, sessionId) => request('/api/live/attach', json({ case_id: caseId, session_id: sessionId })),
 }
