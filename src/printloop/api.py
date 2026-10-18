@@ -16,7 +16,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from printloop import __version__, kb, llm, loop, project, slicer
-from printloop.config import LOOP, ROOT
+from printloop.config import LOOP, ROOT, slicer_bins
 from printloop.models import Case
 from printloop.project import ProjectError
 from printloop.taxonomy import DEFECTS, SEVERITY, label
@@ -119,7 +119,8 @@ class DecisionRequest(BaseModel):
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok", "version": __version__, "llm": llm.describe(), "telemetry": llm.TELEMETRY.snapshot(),
-            "slicer": {"available": slicer.available(), "version": slicer.version()},
+            "slicer": {"available": slicer.available(), "version": slicer.version(),
+                       "installed": {k: slicer.version(b) for k, b in slicer_bins().items()}},
             "max_iterations": LOOP.max_iterations, "min_confidence": LOOP.min_confidence}
 
 

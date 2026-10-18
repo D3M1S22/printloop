@@ -72,9 +72,14 @@ def write_coupon_stl(path: Path) -> Path:
     return path
 
 
+def _builder_bin() -> str | None:
+    """Il coupon si costruisce con BambuStudio (preset di sistema in /opt/BambuStudio), se presente."""
+    return slicer_bin("bambu") or slicer_bin()
+
+
 def profiles_dir() -> Path:
     """Cartella dei preset di sistema BBL dello slicer installato."""
-    binary = slicer_bin()
+    binary = _builder_bin()
     candidates = [
         Path("/var/lib/flatpak/app/com.orcaslicer.OrcaSlicer/current/active/files/share/OrcaSlicer/profiles/BBL"),
         Path("/opt/BambuStudio/resources/profiles/BBL"),
@@ -93,7 +98,7 @@ def profiles_dir() -> Path:
 
 def build_coupon(dst: Path = COUPON_3MF) -> Path:
     """Costruisce il progetto 3MF del coupon dai preset di sistema (senza G-code dentro)."""
-    binary = slicer_bin()
+    binary = _builder_bin()
     if not binary:
         raise SlicerError("slicer non trovato")
     prof = profiles_dir()

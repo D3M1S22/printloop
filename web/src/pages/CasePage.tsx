@@ -252,11 +252,18 @@ function Summary({ data }: { data: Case }) {
         <dd>
           {duration(data.baseline.print_time_s)} · {num(data.baseline.filament_g ?? null, 'g')}
         </dd>
+        <dt>Slicer</dt>
+        <dd>{data.baseline.slicer ?? '—'}</dd>
         <dt>Patch approvate</dt>
         <dd>
           {patches} / {data.max_iterations}
         </dd>
       </dl>
+      {data.baseline.notes?.map((note) => (
+        <Notice key={note} tone="warn">
+          {note}
+        </Notice>
+      ))}
     </Card>
   )
 }

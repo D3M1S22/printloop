@@ -166,6 +166,8 @@ export interface Baseline {
   print_time_s?: number | null
   filament_g?: number
   sliced_3mf?: string
+  slicer?: string // slicer che ha creato il progetto, usato per tutti gli slicing del caso
+  notes?: string[] // es. ripiego su un altro slicer
 }
 
 export interface Case {

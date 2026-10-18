@@ -176,13 +176,33 @@ def grams(stats: GcodeStats, settings: dict) -> float:
     return round(stats.filament_mm * area_mm2 / 1000.0 * project.density(settings), 2)
 
 
+def ui_checks(changes: list[Change], delivered_settings: dict) -> list[Check]:
+    """Ogni chiave patchata deve risultare "modificata rispetto al sistema" nel 3MF consegnato.
+
+    È la regola con cui OrcaSlicer riapre un progetto: le chiavi non elencate in different_settings_to_system
+    tornano al valore del preset di sistema (update_non_diff_values_to_base_config).
+    """
+    checks = []
+    for change in changes:
+        for key in change.real:
+            ok = project.is_marked(delivered_settings, key)
+            checks.append(Check(check="slicer_ui", key=change.key, target=key, expected="dichiarata modificata",
+                                status="pass" if ok else "fail",
+                                detail="visibile all'apertura in OrcaSlicer/BambuStudio" if ok else
+                                "non dichiarata in different_settings_to_system: lo slicer mostrerebbe il valore di sistema"))
+    return checks
+
+
 def run(before: GcodeStats, after: GcodeStats, changes: list[Change], settings_before: dict, settings_after: dict,
-        time_before_s: float | None = None, time_after_s: float | None = None) -> Preflight:
+        time_before_s: float | None = None, time_after_s: float | None = None,
+        delivered_settings: dict | None = None) -> Preflight:
     checks: list[Check] = []
     for change in changes:
         checks.extend(_propagation(change, before, after))
         if not change.companion:
             checks.append(_effect(change, before, after))
+    if delivered_settings is not None:
+        checks.extend(ui_checks(changes, delivered_settings))
     limits = _limits(before, after, settings_after)
     side = {
         "print_time_s": [_r(time_before_s), _r(time_after_s)],

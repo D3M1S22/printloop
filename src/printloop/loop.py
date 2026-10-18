@@ -250,13 +250,21 @@ def _build(case: Case, it: Iteration, changes: list[Change], settings: dict, tag
     root = case_dir(case.id)
     rel = Path(f"iter_{it.n}") / tag
     shutil.rmtree(root / rel, ignore_errors=True)
-    patched_settings = project.apply_changes(settings, validate.real_map(changes, settings))
+    real = validate.real_map(changes, settings)
+    # Tutte le chiavi patchate nel caso (iterazioni approvate + questa) vanno dichiarate modificate rispetto al
+    # preset di sistema, altrimenti OrcaSlicer le riporta al valore di sistema quando l'utente riapre il 3MF.
+    marked = {k for c in _applied_changes(case) for k in c.real} | set(real)
+    patched_settings, _ = project.mark_different(project.apply_changes(settings, real), marked)
     patched = project.write_patched(root / it.project, root / rel / "patched.3mf", patched_settings)
     result = slicer.slice_project(patched, root / rel / "slice")
+    # La CLI dello slicer riscrive la lista vuota nel 3MF esportato: la ripristiniamo nel file consegnato.
+    delivered, _ = project.mark_different(project.read_settings(result.sliced_3mf), marked)
+    project.rewrite_settings(result.sliced_3mf, delivered)
     before = gcode.parse(root / it.source_gcode)
     after = gcode.parse(result.gcode)
     time_before = _slice_time(root / Path(it.source_gcode).parent)
-    report = preflight.run(before, after, changes, settings, patched_settings, time_before, result.print_time_s)
+    report = preflight.run(before, after, changes, settings, patched_settings, time_before, result.print_time_s,
+                           delivered_settings=project.read_settings(result.sliced_3mf))
     return rel, result, report
 
 

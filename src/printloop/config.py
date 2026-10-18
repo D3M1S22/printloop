@@ -15,8 +15,14 @@ PACKAGE_DIR = Path(__file__).resolve().parent
 KB_PATH = PACKAGE_DIR / "kb.yaml"
 EXAMPLES_DIR = ROOT / "examples"
 
-# Eseguibili cercati nel PATH se SLICER_BIN non è impostato: OrcaSlicer e BambuStudio hanno la stessa CLI.
-SLICER_CANDIDATES = ("orca-slicer", "OrcaSlicer", "bambu-studio")
+# Eseguibili cercati se non indicati in .env. OrcaSlicer e BambuStudio hanno la stessa CLI, ma ognuno
+# riscrive il progetto nel proprio formato: un progetto va lavorato con lo slicer che l'ha creato.
+SLICER_CANDIDATES = {
+    "orca": ("orca-slicer", "OrcaSlicer", "~/.local/bin/OrcaSlicer.AppImage", "~/Applications/OrcaSlicer.AppImage",
+             "/opt/OrcaSlicer/bin/orca-slicer"),
+    "bambu": ("bambu-studio", "/opt/BambuStudio/bin/bambu-studio"),
+}
+SLICER_ENV = {"orca": "ORCA_SLICER_BIN", "bambu": "BAMBU_STUDIO_BIN"}
 
 
 def _env(name: str, default: str | None = None) -> str | None:
@@ -53,15 +59,33 @@ class LoopConfig:
     propose_attempts: int = 3
 
 
-def slicer_bin() -> str | None:
+def _find(candidate: str) -> str | None:
+    if "/" in candidate:
+        path = Path(candidate).expanduser()
+        return str(path) if path.is_file() and os.access(path, os.X_OK) else None
+    return shutil.which(candidate)
+
+
+def slicer_bins() -> dict[str, str]:
+    """Slicer installati per tipo ("orca", "bambu"): da ORCA_SLICER_BIN / BAMBU_STUDIO_BIN o dai percorsi noti."""
+    found = {}
+    for kind, candidates in SLICER_CANDIDATES.items():
+        explicit = _env(SLICER_ENV[kind])
+        path = _find(explicit) if explicit else next((p for c in candidates if (p := _find(c))), None)
+        if path:
+            found[kind] = path
+    return found
+
+
+def slicer_bin(kind: str | None = None) -> str | None:
+    """SLICER_BIN forza un unico slicer; altrimenti quello del tipo richiesto, o il primo disponibile."""
     explicit = _env("SLICER_BIN")
     if explicit:
         return explicit
-    for name in SLICER_CANDIDATES:
-        path = shutil.which(name)
-        if path:
-            return path
-    return None
+    bins = slicer_bins()
+    if kind:
+        return bins.get(kind)
+    return bins.get("orca") or bins.get("bambu")
 
 
 LLM = LLMConfig()

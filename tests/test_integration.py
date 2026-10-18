@@ -41,7 +41,18 @@ def test_full_loop_bridge(runs, cases):
     it = case.current
     assert case.state == "awaiting_approval" and it.preflight.ok
     assert it.proposal.changes[0].key == "bridge_speed" and it.proposal.changes[0].after == 80
-    assert (loop.case_dir(case.id) / it.sliced_3mf).exists()
+    delivered = loop.case_dir(case.id) / it.sliced_3mf
+    assert delivered.exists()
+    # il 3MF consegnato dichiara la patch come modificata (OrcaSlicer altrimenti la riporta al valore di sistema)
+    from printloop import project
+    assert project.is_marked(project.read_settings(delivered), "bridge_speed")
+    assert any(c.check == "slicer_ui" and c.status == "pass" for c in it.preflight.checks)
+    # ...e il G-code dentro il 3MF è intatto
+    import hashlib
+    import zipfile
+    with zipfile.ZipFile(delivered) as zf:
+        gcode_bytes = zf.read("Metadata/plate_1.gcode")
+        assert hashlib.md5(gcode_bytes).hexdigest().upper() == zf.read("Metadata/plate_1.gcode.md5").decode().strip().upper()
 
     # modifica dell'operatore: oltre il passo della KB, dentro i limiti -> avviso, ricalcolo, approvazione
     case = loop.decide(case.id, approved=True, reason="vado più piano", edits={"bridge_speed": 40})
@@ -49,6 +60,9 @@ def test_full_loop_bridge(runs, cases):
     assert case.iterations[0].proposal.source == "operator"
 
     loop.add_photos(case.id, [("front.jpg", _photo())])
+    # la patch approvata resta dichiarata anche nel progetto dell'iterazione successiva
+    from printloop import project as prj
+    assert prj.is_marked(prj.read_settings(loop.case_dir(case.id) / case.current.project), "bridge_speed")
     case = loop.diagnose_case(case.id, mode="operator", defect="bridge_sagging", severity=1)
     assert case.state == "done" and case.outcome == "fixed"
     events = [row["event"] for row in loop.audit_log(case.id)]

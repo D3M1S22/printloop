@@ -24,6 +24,23 @@ BED_KEYS = {
     "Supertack Plate": "supertack_plate_temp",
 }
 
+# Sezione di ogni chiave reale che PrintLoop può scrivere, nell'ordine di `different_settings_to_system`:
+# [process, filamento 1..n, stampante]. Serve perché OrcaSlicer, riaprendo un progetto, riporta al valore del
+# preset di sistema ogni chiave NON elencata in quella lista (PresetBundle::project_different_keys +
+# Preset::load_external_config -> update_non_diff_values_to_base_config). Vedi docs/printloop/01_RESEARCH_STACK.md.
+_PLATE_KEYS = [f"{p}{suffix}" for p in ("cool_plate_temp", "eng_plate_temp", "hot_plate_temp", "textured_plate_temp",
+                                        "supertack_plate_temp", "textured_cool_plate_temp")
+               for suffix in ("", "_initial_layer")]
+SECTION_OF: dict[str, str] = {
+    "bridge_speed": "process", "bridge_flow": "process", "initial_layer_speed": "process",
+    "brim_width": "process", "brim_type": "process",
+    "filament_flow_ratio": "filament", "nozzle_temperature": "filament", "nozzle_temperature_initial_layer": "filament",
+    "overhang_fan_speed": "filament", "filament_max_volumetric_speed": "filament",
+    "filament_retraction_length": "filament", "filament_density": "filament",
+    "retraction_length": "printer",
+    **{k: "filament" for k in _PLATE_KEYS},
+}
+
 # Densità di riserva (g/cm³) se il preset non la riporta: serve solo a stimare i grammi.
 DEFAULT_DENSITY = {"PLA": 1.24, "PETG": 1.27, "ABS": 1.04, "ASA": 1.07, "TPU": 1.21, "PA": 1.12, "PC": 1.2, "PP": 0.9}
 
@@ -155,6 +172,75 @@ def write_patched(src: str | Path, dst: str | Path, settings: dict) -> Path:
             data = json.dumps(sanitized, indent=4).encode() if name == PROJECT_SETTINGS else zin.read(name)
             zout.writestr(item, data)
     return dst
+
+
+def section_of(key: str) -> str | None:
+    if key in SECTION_OF:
+        return SECTION_OF[key]
+    return "filament" if key.startswith("filament_") else None
+
+
+def num_filaments(settings: dict) -> int:
+    for key in ("filament_colour", "filament_settings_id"):
+        value = settings.get(key)
+        if isinstance(value, list) and value:
+            return len(value)
+    return 1
+
+
+def different_lists(settings: dict) -> list[str]:
+    """`different_settings_to_system` come [process, filamento 1..n, stampante], completato con stringhe vuote."""
+    size = num_filaments(settings) + 2
+    raw = settings.get("different_settings_to_system")
+    values = [str(v) for v in raw] if isinstance(raw, list) else ([str(raw)] if raw else [])
+    return (values + [""] * size)[:max(size, len(values))]
+
+
+def _section_indices(settings: dict, section: str) -> list[int]:
+    n = num_filaments(settings)
+    return {"process": [0], "filament": list(range(1, n + 1)), "printer": [n + 1]}[section]
+
+
+def mark_different(settings: dict, keys) -> tuple[dict, list[str]]:
+    """Dichiara `keys` come modificate rispetto al preset di sistema, così lo slicer le mantiene alla riapertura.
+
+    Unione con quanto già elencato; restituisce (impostazioni aggiornate, chiavi senza sezione nota).
+    """
+    lists = different_lists(settings)
+    unknown = []
+    for key in keys:
+        section = section_of(key)
+        if section is None:
+            unknown.append(key)
+            continue
+        for idx in _section_indices(settings, section):
+            current = {k for k in lists[idx].split(";") if k}
+            current.add(key)
+            lists[idx] = ";".join(sorted(current))
+    updated = dict(settings)
+    updated["different_settings_to_system"] = lists
+    return updated, unknown
+
+
+def is_marked(settings: dict, key: str) -> bool:
+    """True se la chiave è elencata come modificata in tutte le voci della sua sezione."""
+    section = section_of(key)
+    if section is None:
+        return False
+    lists = different_lists(settings)
+    return all(key in lists[idx].split(";") for idx in _section_indices(settings, section))
+
+
+def rewrite_settings(path: str | Path, settings: dict) -> Path:
+    """Sostituisce solo Metadata/project_settings.config in un 3MF, lasciando intatti G-code e metadati."""
+    path = Path(path)
+    tmp = path.with_suffix(".tmp.3mf")
+    with zipfile.ZipFile(path) as zin, zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            data = json.dumps(settings, indent=4).encode() if item.filename == PROJECT_SETTINGS else zin.read(item.filename)
+            zout.writestr(item, data)
+    tmp.replace(path)
+    return path
 
 
 def diff(before: dict, after: dict) -> dict[str, tuple[Any, Any]]:

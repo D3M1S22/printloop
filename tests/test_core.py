@@ -252,3 +252,58 @@ def test_operator_diagnosis():
     assert d.primary == "none" and d.severity == 0 and d.source == "operator"
     with pytest.raises(ValueError):
         diagnose.diagnose_operator("nope", 1)
+
+
+# --- scelta dello slicer ----------------------------------------------------------------------------------
+
+def _fake_3mf(path, orca: bool):
+    import zipfile
+    meta = '<metadata name="OrcaSlicer">2.4.2</metadata>' if orca else ""
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("3D/3dmodel.model", f'<model><metadata name="Application">BambuStudio-02.06.00.51</metadata>{meta}</model>')
+    return path
+
+
+def test_slicer_follows_project_origin(tmp_path, monkeypatch):
+    from printloop import slicer
+    monkeypatch.delenv("SLICER_BIN", raising=False)
+    orca_project, bambu_project = _fake_3mf(tmp_path / "o.3mf", True), _fake_3mf(tmp_path / "b.3mf", False)
+    assert slicer.project_origin(orca_project) == "orca" and slicer.project_origin(bambu_project) == "bambu"
+    monkeypatch.setattr(slicer, "slicer_bins", lambda: {"orca": "/x/orca", "bambu": "/x/bambu"})
+    assert slicer.choose(orca_project) == ("/x/orca", []) and slicer.choose(bambu_project) == ("/x/bambu", [])
+    # Orca non installato: si ripiega su BambuStudio e lo si dichiara
+    monkeypatch.setattr(slicer, "slicer_bins", lambda: {"bambu": "/x/bambu"})
+    binary, notes = slicer.choose(orca_project)
+    assert binary == "/x/bambu" and "OrcaSlicer" in notes[0]
+
+
+# --- different_settings_to_system (riapertura nello slicer) ----------------------------------------------
+
+def test_mark_different_sections_and_union():
+    s = settings_fixture(filament_settings_id=["Bambu ASA"], different_settings_to_system=["wall_loops", "", ""])
+    out, unknown = project.mark_different(s, ["bridge_speed", "overhang_fan_speed", "retraction_length", "zzz"])
+    assert out["different_settings_to_system"] == ["bridge_speed;wall_loops", "overhang_fan_speed", "retraction_length"]
+    assert unknown == ["zzz"]
+    again, _ = project.mark_different(out, ["overhang_fan_speed"])  # nessun duplicato
+    assert again["different_settings_to_system"][1] == "overhang_fan_speed"
+    assert project.is_marked(again, "overhang_fan_speed") and not project.is_marked(s, "overhang_fan_speed")
+
+
+def test_mark_different_missing_list_and_two_filaments():
+    s = settings_fixture(filament_colour=["#000", "#fff"])
+    s.pop("different_settings_to_system")
+    out, _ = project.mark_different(s, ["filament_flow_ratio", "retraction_length"])
+    assert out["different_settings_to_system"] == ["", "filament_flow_ratio", "filament_flow_ratio", "retraction_length"]
+
+
+def test_every_kb_key_has_a_section():
+    from printloop import kb
+    keys = set()
+    for key, meta in kb.load()["params"].items():
+        keys.add(key)
+        keys.update(meta.get("companions", {}).keys())
+        if meta.get("filament_override"):
+            keys.add(meta["filament_override"])
+    keys.discard("bed_temperature")  # alias: le chiavi reali sono quelle del piano
+    keys.update(project._PLATE_KEYS)
+    assert {k for k in keys if project.section_of(k) is None} == set()

@@ -46,6 +46,7 @@ export const CHECK_LABEL: Record<string, string> = {
   max_volumetric_speed: 'Flusso volumetrico',
   nozzle_range: 'Range del filamento',
   bed_max: 'Massimo del piano',
+  slicer_ui: 'Visibile nello slicer',
 }
 
 const nf = new Intl.NumberFormat('it-IT', { maximumFractionDigits: 3 })

@@ -119,6 +119,14 @@ Per la diagnosi bastano le immagini. L'audio non serve.
 ### 4.3 Commenti nel G-code ✅ (verificato il 17/10 su BambuStudio 2.8.2)
 `; FEATURE: <tipo>` (Bridge, Outer wall, Inner wall, Overhang wall, …), `; CHANGE_LAYER`, `; LAYER_HEIGHT:`, `; LINE_WIDTH:`, un `CONFIG_BLOCK` con tutte le impostazioni effettive e un'intestazione con tempo, lunghezza e peso del filamento. Con `--outputdir` la CLI scrive anche `plate_<n>.gcode` e `result.json` (tempi per feature, grammi). Headless senza display: funziona (fallisce solo la miniatura, per OSMesa assente). Dettagli in [06_IMPLEMENTATION_STATUS.md](06_IMPLEMENTATION_STATUS.md) §2.
 
+### 4.4 Come OrcaSlicer riapre un progetto ✅ (sorgente OrcaSlicer + log della GUI 2.4.2; prova in GUI con V3 in corso)
+- La GUI carica un 3MF con `PresetBundle::load_config_file_config()` → `PresetCollection::load_external_preset()` → `Preset::load_external_config()`.
+- Le chiavi "modificate rispetto al sistema" si leggono da `different_settings_to_system`: una stringa per sezione, nell'ordine **[process, filamento 1..n, stampante]**, con le chiavi separate da `;`.
+- `PresetBundle::project_different_keys()` vi aggiunge sempre `ignore_settings_list` (`inherits`, `*_settings_id`), quindi l'insieme non è mai vuoto. Di conseguenza `load_external_config()` esegue sempre `update_non_diff_values_to_base_config()`: **ogni chiave non elencata torna al valore del preset di sistema**.
+- Quando la GUI salva, la lista viene compilata con le opzioni modificate rispetto al preset padre (`dirty_options_without_option_list`). La **CLI** invece la esporta vuota (`['', '', '']`).
+- Conseguenza per PrintLoop: ogni chiave patchata va dichiarata in quella lista (`project.mark_different`), altrimenti l'utente riapre il progetto e vede il valore di sistema, mentre il G-code usa quello nuovo. BambuStudio 2.8 su questi file mostra comunque il valore del progetto.
+- La CLI non passa da questo caricatore: legge sempre i valori del progetto.
+
 ---
 
 ## 5. Prior art (da citare nel pitch)

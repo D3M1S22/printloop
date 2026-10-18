@@ -11,7 +11,7 @@ Il loop del Modo 2 è implementato e testato end-to-end con lo slicer reale:
 | Componente | File | Stato |
 | :-- | :-- | :-- |
 | Lettura/scrittura impostazioni nel 3MF (liste, `%`, alias del piano, override di filamento) | `project.py` | ✅ |
-| Wrapper CLI slicer (BambuStudio o OrcaSlicer, headless) | `slicer.py` | ✅ verificato con BambuStudio 2.8.2 |
+| Wrapper CLI slicer (BambuStudio o OrcaSlicer, headless), scelto in base all'origine del progetto | `slicer.py` | ✅ verificato con BambuStudio 2.8.2 e OrcaSlicer 2.4.2 |
 | Parser G-code (feature, layer, archi G2/G3, E relativa/assoluta, wipe, ventola, setpoint, flusso volumetrico) | `gcode.py` | ✅ 150k righe in 0,3 s |
 | Knowledge base (11 parametri, 7 difetti correggibili, 3 da escalation) | `kb.yaml`, `kb.py` | ✅ |
 | Validatore (candidati, passo, direzione, limiti e limiti del materiale, oscillazioni, companion) | `validate.py` | ✅ |
@@ -80,6 +80,16 @@ cd web && npm ci && npm run dev                           # UI su :5174 (oppure 
 ```
 
 Caso reale da CLI: `printloop new progetto.3mf` → `printloop photos <id> a.jpg b.jpg --note "…"` → `printloop diagnose <id>` (con Gemma) oppure `--defect stringing --severity 2` → `printloop propose <id>` → `printloop approve <id>` / `reject <id> --reason "…"` / `approve <id> --set retraction_length=1.2 --reason "…"`.
+
+## 5bis. Test reale su P1S (18/10): un progetto si lavora con lo slicer che l'ha creato
+
+Primo loop reale (bridge in ASA, diagnosi Gemma corretta, patch `overhang_fan_speed` 80 → 100). Il 3MF scaricato, aperto in OrcaSlicer, non mostrava la modifica come atteso. Causa: il progetto era di **OrcaSlicer 2.4.2** e la pipeline lo riesportava con **BambuStudio 2.8.2**, che riscriveva tutte le impostazioni nel proprio formato (422 chiavi diverse, ~70 impostazioni Orca perse, tra cui `chamber_temperature = 60`). Il G-code conteneva 100, ma il progetto non era più quello dell'utente.
+
+Correzione: `slicer.choose()` legge il tag `OrcaSlicer` nei metadati del 3MF e usa lo stesso slicer che ha creato il progetto (Orca da AppImage, CLI headless verificata); se non è installato ripiega sull'altro e lo dichiara nel caso (`baseline.notes`, visibile in UI). Ora il 3MF consegnato differisce dall'originale solo per la chiave patchata (più due chiavi di servizio che Orca aggiunge a ogni riesportazione).
+
+**Seconda causa, trovata nello stesso test.** Anche con lo slicer giusto, la GUI di OrcaSlicer mostrava ancora 80%. Il 3MF conteneva 100, la CLI di Orca lo leggeva a 100 e BambuStudio lo mostrava a 100. Il motivo sta nel caricatore dei progetti della GUI di Orca: le chiavi non elencate in `different_settings_to_system` vengono riportate al valore del preset di sistema, e la CLI esporta quella lista vuota (dettagli in [01_RESEARCH_STACK](01_RESEARCH_STACK.md) §4.4).
+
+Correzione: `project.mark_different()` dichiara ogni chiave patchata nel caso, anche quelle delle iterazioni precedenti, nella sezione giusta della lista (`project.SECTION_OF`). Lo fa sia nel progetto patchato sia nel 3MF consegnato, riscrivendo solo `project_settings.config` e lasciando G-code e md5 intatti. Il pre-flight ha un nuovo controllo `slicer_ui` ("visibile nello slicer"), che applica la stessa regola al file consegnato.
 
 ## 6. Limiti noti
 
