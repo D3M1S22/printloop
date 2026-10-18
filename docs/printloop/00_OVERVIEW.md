@@ -1,81 +1,81 @@
-# 00. PrintLoop: direzione del progetto
+# 00. PrintLoop: project direction
 
-> **Track:** 1, Intelligent Industry · **Premi mirati:** AMD Main · Google (Gemma su AMD) · Vibe Generation
-> **Stato (17/10/2026):** Modo 2 implementato e testato end-to-end con lo slicer reale; diagnosi Gemma da provare sull'endpoint AMD. Modo 1 "se c'è tempo". Dettagli in [06_IMPLEMENTATION_STATUS.md](06_IMPLEMENTATION_STATUS.md).
-> **Concept originale:** [`../ideas/01_printloop.md`](../ideas/01_printloop.md). Questo documento lo aggiorna con quanto emerso dalle fonti ufficiali.
+> **Track:** 1, Intelligent Industry · **Target prizes:** AMD Main · Google (Gemma on AMD) · Vibe Generation
+> **Status (17 Oct 2026):** Mode 2 implemented and tested end to end with the real slicer; Gemma diagnosis still to be tried on the AMD endpoint. Mode 1 "if there is time". Details in [06_IMPLEMENTATION_STATUS.md](06_IMPLEMENTATION_STATUS.md).
+> **Original concept:** [`../ideas/01_printloop.md`](../ideas/01_printloop.md). This document updates it with what the official sources showed.
 
 ---
 
-## 1. Pitch in una frase
+## 1. One-line pitch
 
-**PrintLoop guarda un pezzo stampato male, ne individua la causa e propone una modifica minima al preset di OrcaSlicer. Prima della ristampa verifica nel G-code che la modifica abbia l'effetto voluto, e la applica solo con l'approvazione dell'operatore.**
+**PrintLoop looks at a badly printed part, finds the cause and proposes a minimal change to the OrcaSlicer preset. Before the reprint it checks in the G-code that the change has the intended effect, and applies it only with the operator's approval.**
 
-## 2. Problema
+## 2. Problem
 
-Quando una stampa FDM esce male, l'operatore guarda il pezzo, intuisce la causa, cambia qualche parametro nello slicer e riprova. Il ciclo funziona solo se l'operatore ha esperienza, e ogni tentativo sbagliato costa materiale e ore di macchina. Le correzioni restano nella testa di chi le ha fatte, non nei preset.
+When an FDM print comes out wrong, the operator looks at the part, guesses the cause, changes a few parameters in the slicer and tries again. The cycle only works if the operator is experienced, and every wrong attempt costs material and machine hours. The fixes live in the head of whoever made them, not in the presets.
 
-Gli strumenti esistenti coprono solo una parte del ciclo:
-- il **rilevamento dei guasti** grossolani (spaghetti, distacco) è già nel firmware della P1S e in prodotti come Obico ([01_RESEARCH_STACK.md](01_RESEARCH_STACK.md) §5);
-- la **correzione in tempo reale** dei parametri di macchina è stata dimostrata in ricerca (CAXTON, Cambridge 2022), ma richiede una camera accanto all'ugello e agisce sul firmware, non sul preset.
+Existing tools cover only part of the cycle:
+- **detection** of gross failures (spaghetti, detachment) is already in the P1S firmware and in products such as Obico ([01_RESEARCH_STACK.md](01_RESEARCH_STACK.md) §5);
+- **real-time correction** of machine parameters has been shown in research (CAXTON, Cambridge 2022), but it needs a camera next to the nozzle and acts on the firmware, not on the preset.
 
-Nessuno dei due trasforma un difetto osservato in una **modifica persistente e verificata del preset**.
+Neither turns an observed defect into a **persistent, verified change to the preset**.
 
-## 3. Utente e KPI
+## 3. User and KPIs
 
-- **Utente:** operatore o tecnico di un reparto di stampa 3D, piccola officina additiva o service di prototipazione con più macchine e materiali.
-- **KPI della demo:**
-  - iterazioni necessarie per arrivare a un pezzo accettabile, contro una baseline senza PrintLoop;
-  - grammi di filamento e minuti di macchina per iterazione;
-  - severità del difetto prima e dopo, misurata con la stessa rubrica;
-  - accuratezza della diagnosi su difetti indotti con causa nota.
+- **User:** operator or technician of a 3D printing department, small additive workshop or prototyping service with several machines and materials.
+- **Demo KPIs:**
+  - iterations needed to reach an acceptable part, against a baseline without PrintLoop;
+  - grams of filament and machine minutes per iteration;
+  - defect severity before and after, measured with the same rubric;
+  - diagnosis accuracy on induced defects with a known cause.
 
-## 4. Cosa rende il progetto diverso
+## 4. What makes the project different
 
-1. **Il modello sceglie, non inventa.** Gemma 4 classifica il difetto in una tassonomia chiusa e sceglie tra parametri candidati forniti da una knowledge base deterministica. Range e direzione delle modifiche sono vincolati.
-2. **Ogni patch è verificata prima di stampare.** Dopo il re-slice, il pre-flight confronta il G-code prima e dopo (velocità e flusso per feature, ventola, flusso volumetrico rispetto al limite del filamento). Se la modifica non si vede nel G-code, la patch non passa.
-3. **Il risultato si misura.** Dopo la ristampa lo stesso modello valuta il pezzo con la stessa rubrica. Il loop si ferma al successo o dopo K iterazioni, e in quel caso passa la mano all'umano con lo storico.
-4. **Funziona su macchine di serie.** Bastano le foto del telefono e il preset. Non servono camere aggiuntive né firmware modificati. La telemetria live della P1S è un'aggiunta, non un requisito.
+1. **The model chooses, it does not invent.** Gemma 4 classifies the defect into a closed taxonomy and chooses among candidate parameters supplied by a deterministic knowledge base. Range and direction of the changes are constrained.
+2. **Every patch is verified before printing.** After the re-slice, the pre-flight compares the G-code before and after (speed and flow per feature, fan, volumetric flow against the filament limit). If the change does not show in the G-code, the patch does not pass.
+3. **The result is measured.** After the reprint the same model assesses the part with the same rubric. The loop stops on success or after K iterations, and in that case hands over to a human with the history.
+4. **It works on stock machines.** Phone photos and the preset are enough. No extra cameras or modified firmware. Live telemetry from the P1S is an add-on, not a requirement.
 
 ## 5. Scope
 
-**Dentro (MVP), solo Modo 2, post-stampa:**
-- upload del progetto `.3mf` stampato (contiene modello e impostazioni) e di 1–4 foto del pezzo;
-- diagnosi con Gemma 4 su vLLM-ROCm (MI300X), con output JSON con schema;
-- KB difetto → parametri, generazione della patch (massimo 2 parametri) e validatore;
-- re-slice con OrcaSlicer CLI, parsing del G-code e pre-flight;
-- UI di approvazione con diff del preset, diff del pre-flight ed export del preset;
-- valutazione su una serie di stampe con difetti indotti, benchmark AMD.
+**In (MVP), Mode 2 only, after printing:**
+- upload of the printed `.3mf` project (it holds model and settings) and of 1–4 photos of the part;
+- diagnosis with Gemma 4 on vLLM-ROCm (MI300X), with JSON output constrained by a schema;
+- defect → parameters KB, patch generation (at most 2 parameters) and validator;
+- re-slice with the OrcaSlicer CLI, G-code parsing and pre-flight;
+- approval UI with the preset diff, the pre-flight diff and preset export;
+- evaluation on a series of prints with induced defects, AMD benchmark.
 
 **Stretch:**
-- Modo 1, live: telemetria MQTT e frame dalla camera P1S, rilevamento di difetti grossolani, pausa o stop con conferma;
-- invio della ristampa via MQTT (`print.project_file`);
-- confronto tra 26B-A4B e 31B, fine-tuning di un classificatore leggero su ROCm (dataset CAXTON).
+- Mode 1, live: MQTT telemetry and P1S camera frames, detection of gross defects, pause or stop with confirmation;
+- sending the reprint over MQTT (`print.project_file`);
+- comparison between 26B-A4B and 31B, fine-tuning a light classifier on ROCm (CAXTON dataset).
 
-**Fuori:**
-- modifiche ai parametri durante la stampa (sono incorporati nel G-code);
-- guasti meccanici (cinghie, ugello danneggiato, eccentrici);
-- stampanti diverse dalla P1S e slicer diversi da OrcaSlicer;
-- qualsiasi bypass dell'autenticazione Bambu.
+**Out:**
+- changing parameters during the print (they are baked into the G-code);
+- mechanical failures (belts, damaged nozzle, eccentric nuts);
+- printers other than the P1S and slicers other than OrcaSlicer;
+- any bypass of Bambu authentication.
 
-## 6. Correzioni rispetto al concept originale
+## 6. Corrections to the original concept
 
-| Concept originale ([`01_printloop.md`](../ideas/01_printloop.md)) | Versione corretta | Motivo (fonte in 01_RESEARCH_STACK) |
+| Original concept ([`01_printloop.md`](../ideas/01_printloop.md)) | Corrected version | Reason (source in 01_RESEARCH_STACK) |
 | :-- | :-- | :-- |
-| Modo 1 e Modo 2 alla pari, Modo 1 come trigger | **Modo 2 è il prodotto**, Modo 1 è stretch | La camera P1S produce JPEG 1280×720 a ~0,5–1 fps (§2.3). La P1S ha già un rilevamento spaghetti a bordo (§5) |
-| Input video a Gemma (fino a 32 frame per richiesta) | **Immagini multiple** (`--limit-mm-per-prompt`) | La recipe vLLM non documenta un limite di frame per il video (§3.2). Le foto sono più semplici e più nitide |
-| "Velocità" come override durante la stampa | Solo **4 livelli di velocità** (silent, standard, sport, ludicrous) | `print.print_speed` accetta solo i valori 1–4 (§2.2) |
-| Appiattire i preset con `inherits` a mano | **`--export-settings`** della CLI | La CLI esporta le impostazioni effettive in un JSON (§4.2) |
-| Output del re-slice: G-code | **3MF con G-code dentro** (`Metadata/plate_N.gcode`) | La CLI documentata esporta 3MF, non `.gcode` (§4.2) |
-| "Loop chiuso" come differenziatore | Il differenziatore è **patch persistente del preset + verifica sul G-code** | CAXTON fa già correzione in loop chiuso in tempo reale (§5) e va citato come prior art |
-| Dataset solo nostro | Dataset nostro come test set + **CAXTON (CC BY 4.0)** per il benchmark ROCm | 1,27 M immagini etichettate con flow, velocità, Z offset e temperatura (§6) |
+| Mode 1 and Mode 2 on equal footing, Mode 1 as the trigger | **Mode 2 is the product**, Mode 1 is stretch | The P1S camera produces 1280×720 JPEGs at ~0.5–1 fps (§2.3). The P1S already has on-board spaghetti detection (§5) |
+| Video input to Gemma (up to 32 frames per request) | **Multiple images** (`--limit-mm-per-prompt`) | The vLLM recipe does not document a frame limit for video (§3.2). Photos are simpler and sharper |
+| "Speed" as an override during the print | Only **4 speed levels** (silent, standard, sport, ludicrous) | `print.print_speed` only accepts values 1–4 (§2.2) |
+| Flattening presets with `inherits` by hand | The CLI's **`--export-settings`** | The CLI exports the effective settings to a JSON (§4.2) |
+| Re-slice output: G-code | **3MF with the G-code inside** (`Metadata/plate_N.gcode`) | The documented CLI exports a 3MF, not a `.gcode` (§4.2) |
+| "Closed loop" as the differentiator | The differentiator is **a persistent preset patch + verification on the G-code** | CAXTON already does real-time closed-loop correction (§5) and must be cited as prior art |
+| Our own dataset only | Our dataset as the test set + **CAXTON (CC BY 4.0)** for the ROCm benchmark | 1.27 M images labelled with flow, speed, Z offset and temperature (§6) |
 
-## 7. Mappa dei documenti
+## 7. Document map
 
-| Doc | Contenuto |
+| Doc | Content |
 | :-- | :-- |
-| [01_RESEARCH_STACK.md](01_RESEARCH_STACK.md) | Cosa dicono le fonti ufficiali: Bambu Developer Mode, MQTT, camera, OrcaSlicer CLI, Gemma 4 e vLLM, AMD, prior art, dataset |
-| [02_DATA_STRATEGY.md](02_DATA_STRATEGY.md) | Dati a disposizione, matrice dei difetti indotti, rubrica, ground truth, metriche |
-| [03_ARCHITECTURE.md](03_ARCHITECTURE.md) | Componenti, contratti JSON, KB, pre-flight, macchina a stati, struttura del codice |
-| [04_PLAN_DECISIONS_RISKS.md](04_PLAN_DECISIONS_RISKS.md) | Decisione PrintLoop o MarginSwarm, spike con criteri go/no-go, piano fino alla consegna, rischi, domande aperte |
-| [05_API.md](05_API.md) | Contratto API per il frontend, stati e azioni ammesse, fixture |
-| [06_IMPLEMENTATION_STATUS.md](06_IMPLEMENTATION_STATUS.md) | Cosa funziona, risultati misurati, limiti, prossimi passi |
+| [01_RESEARCH_STACK.md](01_RESEARCH_STACK.md) | What the official sources say: Bambu Developer Mode, MQTT, camera, OrcaSlicer CLI, Gemma 4 and vLLM, AMD, prior art, datasets |
+| [02_DATA_STRATEGY.md](02_DATA_STRATEGY.md) | Available data, induced-defect matrix, rubric, ground truth, metrics |
+| [03_ARCHITECTURE.md](03_ARCHITECTURE.md) | Components, JSON contracts, KB, pre-flight, state machine, code layout |
+| [04_PLAN_DECISIONS_RISKS.md](04_PLAN_DECISIONS_RISKS.md) | PrintLoop vs MarginSwarm decision, spikes with go/no-go criteria, plan to delivery, risks, open questions |
+| [05_API.md](05_API.md) | API contract for the frontend, states and allowed actions, fixtures |
+| [06_IMPLEMENTATION_STATUS.md](06_IMPLEMENTATION_STATUS.md) | What works, measured results, limits, next steps |

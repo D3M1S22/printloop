@@ -1,9 +1,9 @@
 {
-  "id": "b1a1bdae50",
+  "id": "0f422d0b93",
   "name": "Bridge test",
   "state": "awaiting_approval",
-  "created_at": "2026-10-16T22:56:20+00:00",
-  "updated_at": "2026-10-16T22:56:21+00:00",
+  "created_at": "2026-10-18T04:02:28+00:00",
+  "updated_at": "2026-10-18T04:02:29+00:00",
   "printer": "Bambu Lab P1S 0.4 nozzle",
   "material": "PLA",
   "process": "0.20mm Standard @BBL X1C",
@@ -12,7 +12,7 @@
     "sliced_3mf": "sliced.3mf",
     "gcode": {
       "layers": 85,
-      "filament_mm": 1449.3,
+      "filament_mm": 1449.2,
       "features": {
         "Bottom surface": {
           "length_mm": 3059.0,
@@ -32,7 +32,7 @@
           "length_mm": 270.4,
           "moves": 26,
           "speed_mm_s": 100.0,
-          "e_per_mm": 0.02816,
+          "e_per_mm": 0.02786,
           "fan_pct": 99.0
         },
         "Inner wall": {
@@ -93,12 +93,14 @@
       "volumetric_p99_mm3_s": 20.58,
       "header": {
         "total layer number": "85",
-        "total filament length [mm]": "1449.26",
+        "total filament length [mm]": "1449.18",
         "total filament weight [g]": "4.39"
       }
     },
-    "print_time_s": 703.6259155273438,
-    "slice_elapsed_s": 0.31,
+    "print_time_s": 703.5969848632812,
+    "slice_elapsed_s": 0.37,
+    "slicer": "BambuStudio-02.08.02.61",
+    "notes": [],
     "filament_g": 4.39
   },
   "iterations": [
@@ -110,7 +112,7 @@
         "iter_1/photos/front.jpg",
         "iter_1/photos/macro.jpg"
       ],
-      "note": "i ponti cedono al centro",
+      "note": "the bridges sag in the middle",
       "diagnosis": {
         "findings": [
           {
@@ -120,11 +122,11 @@
             "evidence": [
               {
                 "photo": "iter_1/photos/front.jpg",
-                "description": "indicato dall'operatore"
+                "description": "stated by the operator"
               },
               {
                 "photo": "iter_1/photos/macro.jpg",
-                "description": "indicato dall'operatore"
+                "description": "stated by the operator"
               }
             ],
             "location": ""
@@ -136,9 +138,9 @@
         "source": "operator",
         "model": null,
         "latency_ms": null,
-        "note": "i ponti cedono al centro",
-        "at": "2026-10-16T22:56:20+00:00",
-        "primary_label": "Bridge che cedono",
+        "note": "the bridges sag in the middle",
+        "at": "2026-10-18T04:02:28+00:00",
+        "primary_label": "Sagging bridges",
         "severity": 3,
         "confidence": 1.0
       },
@@ -149,22 +151,22 @@
             "key": "bridge_flow",
             "before": 1.0,
             "after": 0.9,
-            "reason": "valore scelto dall'operatore",
+            "reason": "value chosen by the operator",
             "real": {
               "bridge_flow": 0.9
             },
             "companion": false,
-            "label": "Flusso dei bridge",
+            "label": "Bridge flow",
             "unit": "x"
           }
         ],
-        "rationale": "flusso un po' più basso",
-        "expected_effect": "riduzione di: bridge che cedono",
+        "rationale": "slightly lower flow",
+        "expected_effect": "less sagging bridges",
         "source": "operator",
         "model": null,
         "latency_ms": null,
         "rejected_attempts": [],
-        "at": "2026-10-16T22:56:21+00:00"
+        "at": "2026-10-18T04:02:29+00:00"
       },
       "validation": {
         "ok": true,
@@ -182,7 +184,7 @@
             "after": 0.9,
             "expected": "0.9",
             "status": "pass",
-            "detail": "valore scritto nel G-code"
+            "detail": "value written in the G-code"
           },
           {
             "check": "extrusion_per_mm",
@@ -190,21 +192,31 @@
             "target": "Bridge",
             "before": 0.048047406057893045,
             "after": 0.04233745817321923,
-            "expected": "diminuzione verso 0.9",
+            "expected": "decrease to 0.9",
             "status": "pass",
-            "detail": "rapporto misurato 0.8812, atteso 0.9000"
+            "detail": "measured ratio 0.8812, expected 0.9000"
+          },
+          {
+            "check": "slicer_ui",
+            "key": "bridge_flow",
+            "target": "bridge_flow",
+            "before": null,
+            "after": null,
+            "expected": "declared modified",
+            "status": "pass",
+            "detail": "visible when opened in OrcaSlicer/BambuStudio"
           }
         ],
         "limits": [
           {
             "check": "max_volumetric_speed",
             "key": null,
-            "target": "flusso volumetrico p99",
+            "target": "volumetric flow p99",
             "before": 20.6,
             "after": 20.58,
             "expected": "≤ 21 mm³/s",
             "status": "pass",
-            "detail": "nominale, accelerazioni escluse"
+            "detail": "nominal, accelerations excluded"
           },
           {
             "check": "nozzle_range",
@@ -214,7 +226,7 @@
             "after": 220.0,
             "expected": "190–240 °C",
             "status": "pass",
-            "detail": "range del filamento"
+            "detail": "filament range"
           },
           {
             "check": "nozzle_range",
@@ -224,7 +236,7 @@
             "after": 220.0,
             "expected": "190–240 °C",
             "status": "pass",
-            "detail": "range del filamento"
+            "detail": "filament range"
           },
           {
             "check": "bed_max",
@@ -234,7 +246,7 @@
             "after": 35.0,
             "expected": "≤ 65 °C",
             "status": "pass",
-            "detail": "materiale PLA"
+            "detail": "material PLA"
           }
         ],
         "side_effects": {
@@ -257,8 +269,10 @@
       "slice": {
         "sliced_3mf": "sliced.3mf",
         "gcode": "plate_1.gcode",
-        "print_time_s": 706.5802001953125,
-        "slice_elapsed_s": 0.36
+        "print_time_s": 706.55126953125,
+        "slice_elapsed_s": 0.37,
+        "slicer": "BambuStudio-02.08.02.61",
+        "notes": []
       },
       "decision": null,
       "rejected": [
@@ -270,53 +284,83 @@
                 "key": "bridge_speed",
                 "before": 100.0,
                 "after": 80.0,
-                "reason": "Bridge che cedono: ridurre velocità dei bridge di un passo (100 → 80 mm/s)",
+                "reason": "Sagging bridges: decrease bridge speed by one step (100 → 80 mm/s)",
                 "real": {
                   "bridge_speed": 80.0
                 },
                 "companion": false,
-                "label": "Velocità dei bridge",
+                "label": "Bridge speed",
                 "unit": "mm/s"
               }
             ],
-            "rationale": "Primo candidato utilizzabile della knowledge base per 'Bridge che cedono'.",
-            "expected_effect": "riduzione di: bridge che cedono",
+            "rationale": "First usable knowledge base candidate for 'Sagging bridges'.",
+            "expected_effect": "less sagging bridges",
             "source": "rules",
             "model": null,
             "latency_ms": null,
             "rejected_attempts": [],
-            "at": "2026-10-16T22:56:20+00:00"
+            "at": "2026-10-18T04:02:28+00:00"
           },
-          "reason": "prima provo con la ventola",
-          "at": "2026-10-16T22:56:21+00:00"
+          "reason": "trying the fan first",
+          "at": "2026-10-18T04:02:28+00:00"
         }
       ],
+      "confirmed": null,
       "photo_urls": [
-        "/api/cases/b1a1bdae50/files/iter_1/photos/front.jpg",
-        "/api/cases/b1a1bdae50/files/iter_1/photos/macro.jpg"
+        "/api/cases/0f422d0b93/files/iter_1/photos/front.jpg",
+        "/api/cases/0f422d0b93/files/iter_1/photos/macro.jpg"
       ],
-      "print_file_url": "/api/cases/b1a1bdae50/files/iter_1/edit_1/slice/sliced.3mf",
-      "project_url": "/api/cases/b1a1bdae50/files/original.3mf"
+      "print_file_url": "/api/cases/0f422d0b93/files/iter_1/edit_1/slice/sliced.3mf",
+      "project_url": "/api/cases/0f422d0b93/files/original.3mf"
     }
   ],
   "rejected_keys": [
     "bridge_speed"
   ],
   "outcome": null,
-  "message": "Patch verificata sul G-code: in attesa dell'approvazione dell'operatore.",
+  "message": "Patch verified on the G-code: awaiting operator approval.",
   "allowed_actions": [
     "approve",
     "reject",
     "edit",
     "diagnose",
-    "stop"
+    "stop",
+    "rewind"
   ],
-  "llm_mode": "offline",
+  "rewind_targets": [
+    {
+      "iteration": 1,
+      "step": "photos",
+      "discards": [
+        "2 photos of iteration 1",
+        "the diagnosis of iteration 1",
+        "1 rejected proposal of iteration 1",
+        "the patch of iteration 1"
+      ]
+    },
+    {
+      "iteration": 1,
+      "step": "diagnosis",
+      "discards": [
+        "the diagnosis of iteration 1",
+        "1 rejected proposal of iteration 1",
+        "the patch of iteration 1"
+      ]
+    },
+    {
+      "iteration": 1,
+      "step": "patch",
+      "discards": [
+        "the patch of iteration 1"
+      ]
+    }
+  ],
+  "llm_mode": "llm",
   "latest_print_file_url": null,
   "edit_options": [
     {
       "key": "bridge_speed",
-      "label": "Velocità dei bridge",
+      "label": "Bridge speed",
       "unit": "mm/s",
       "step": 20.0,
       "direction": "down",
@@ -327,7 +371,7 @@
     },
     {
       "key": "overhang_fan_speed",
-      "label": "Ventola su overhang e bridge",
+      "label": "Overhang and bridge fan",
       "unit": "%",
       "step": 20.0,
       "direction": "up",
@@ -338,7 +382,7 @@
     },
     {
       "key": "bridge_flow",
-      "label": "Flusso dei bridge",
+      "label": "Bridge flow",
       "unit": "x",
       "step": 0.05,
       "direction": "down",

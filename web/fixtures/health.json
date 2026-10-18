@@ -2,9 +2,9 @@
   "status": "ok",
   "version": "0.1.0",
   "llm": {
-    "mode": "offline",
-    "model": null,
-    "base_url": null
+    "mode": "llm",
+    "model": "Gemma-4-26B-Vision-Q3",
+    "base_url": "http://192.168.1.159:8080/v1"
   },
   "telemetry": {
     "calls": 0,
@@ -16,7 +16,11 @@
   },
   "slicer": {
     "available": true,
-    "version": "BambuStudio-02.08.02.61"
+    "version": "OrcaSlicer-2.4.2",
+    "installed": {
+      "orca": "OrcaSlicer-2.4.2",
+      "bambu": "BambuStudio-02.08.02.61"
+    }
   },
   "max_iterations": 3,
   "min_confidence": 0.6

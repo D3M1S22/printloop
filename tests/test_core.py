@@ -1,4 +1,4 @@
-"""Test di parser, impostazioni, validatore, proposta e pre-flight: girano senza slicer né LLM."""
+"""Tests of parser, settings, validator, proposal and pre-flight: they run without slicer or LLM."""
 import pytest
 
 from printloop import diagnose, gcode, preflight, project, propose, validate
@@ -65,7 +65,7 @@ def test_gcode_features_speed_extrusion_and_fan():
     assert wall.fan() == pytest.approx(100.0)
     bridge = st.features["Bridge"]
     assert bridge.speed() == pytest.approx(30.0)
-    # arco G3 di mezzo giro con raggio 5: lunghezza pi*5
+    # half-turn G3 arc with radius 5: length pi*5
     assert bridge.length_mm == pytest.approx(10 + 3.14159265 * 5 + 10, rel=1e-6)
     assert st.layers == 2
     assert st.first_layer["Bridge"].length_mm == pytest.approx(10 + 3.14159265 * 5, rel=1e-6)
@@ -74,7 +74,7 @@ def test_gcode_features_speed_extrusion_and_fan():
 def test_gcode_retraction_sums_wipe_and_ignores_end_gcode():
     st = gcode.parse_text(GCODE)
     assert st.retractions == [pytest.approx(0.8)]
-    # l'estrusione dopo MACHINE_END_GCODE_START non conta
+    # extrusion after MACHINE_END_GCODE_START does not count
     assert st.filament_mm == pytest.approx(0.5 + 0.5 + 0.8 + 0.6 + 0.8)
 
 
@@ -93,7 +93,7 @@ def test_gcode_absolute_extrusion():
     assert st.features["Inner wall"].speed() == pytest.approx(10.0)
 
 
-# --- impostazioni ---------------------------------------------------------------------------------------
+# --- settings -------------------------------------------------------------------------------------------
 
 def test_project_format_preserved():
     s = settings_fixture()
@@ -115,7 +115,7 @@ def test_project_aliases_and_overrides():
     assert project.current_value(s2, "retraction_length", meta) == 1.2
 
 
-# --- validatore -----------------------------------------------------------------------------------------
+# --- validator ------------------------------------------------------------------------------------------
 
 def test_validator_accepts_kb_step():
     check, changes = validate.validate([Change(key="bridge_speed", after=30)], "bridge_sagging", settings_fixture())
@@ -124,13 +124,13 @@ def test_validator_accepts_kb_step():
 
 
 @pytest.mark.parametrize("change,defect,fragment", [
-    (Change(key="bridge_speed", after=70), "bridge_sagging", "direzione"),
-    (Change(key="bridge_speed", after=5), "bridge_sagging", "fuori dai limiti"),
-    (Change(key="bridge_speed", after=-1), "bridge_sagging", "fuori dai limiti"),
-    (Change(key="nozzle_temperature", after=250), "stringing", "fuori dai limiti"),
-    (Change(key="filament_flow_ratio", after=0.9), "bridge_sagging", "non è un candidato"),
-    (Change(key="layer_height", after=0.1), "bridge_sagging", "fuori dalla knowledge base"),
-    (Change(key="bridge_speed", after=50), "bridge_sagging", "uguale"),
+    (Change(key="bridge_speed", after=70), "bridge_sagging", "direction"),
+    (Change(key="bridge_speed", after=5), "bridge_sagging", "out of bounds"),
+    (Change(key="bridge_speed", after=-1), "bridge_sagging", "out of bounds"),
+    (Change(key="nozzle_temperature", after=250), "stringing", "out of bounds"),
+    (Change(key="filament_flow_ratio", after=0.9), "bridge_sagging", "not a candidate"),
+    (Change(key="layer_height", after=0.1), "bridge_sagging", "not in the knowledge base"),
+    (Change(key="bridge_speed", after=50), "bridge_sagging", "equals"),
 ])
 def test_validator_rejects(change, defect, fragment):
     check, _ = validate.validate([change], defect, settings_fixture())
@@ -142,11 +142,11 @@ def test_validator_max_changes_and_oscillation():
     many = [Change(key="bridge_speed", after=30), Change(key="bridge_flow", after=0.95),
             Change(key="overhang_fan_speed", after=80)]
     check, _ = validate.validate(many, "bridge_sagging", settings_fixture())
-    assert any("al massimo" in e for e in check.errors)
+    assert any("at most" in e for e in check.errors)
     history = [Change(key="nozzle_temperature", before=225, after=220)]
     check, _ = validate.validate([Change(key="nozzle_temperature", after=225)], "under_extrusion",
                                  settings_fixture(), history)
-    assert any("oscillazione" in e for e in check.errors)
+    assert any("oscillation" in e for e in check.errors)
 
 
 def test_validator_operator_overrides_step_not_bounds():
@@ -165,7 +165,7 @@ def test_validator_bed_alias_and_material_cap():
     assert check.ok, check.errors
     assert changes[0].real == {"textured_plate_temp": 60, "textured_plate_temp_initial_layer": 65}
     check, _ = validate.validate([Change(key="bed_temperature", after=70)], "warping", s, operator=True)
-    assert not check.ok  # PLA: massimo 65 °C
+    assert not check.ok  # PLA: 65 °C maximum
 
 
 def test_validator_adds_brim_companion():
@@ -175,14 +175,14 @@ def test_validator_adds_brim_companion():
     assert changes[1].after == "outer_only" and changes[1].companion
 
 
-# --- proposta a regole ----------------------------------------------------------------------------------
+# --- rule-based proposal ------------------------------------------------------------------------------
 
 def test_rules_first_candidate_skips_values_at_bound():
     p = propose.propose_rules(diag("bridge_sagging"), settings_fixture(), [], set())
     assert p.changes[0].key == "bridge_speed" and p.changes[0].after == 30
     s = settings_fixture(bridge_speed=["10"])
     p = propose.propose_rules(diag("bridge_sagging"), s, [], set())
-    assert p.changes[0].key == "bridge_flow"  # ventola già al 100%, velocità al minimo
+    assert p.changes[0].key == "bridge_flow"  # fan already at 100%, speed at its minimum
 
 
 def test_rules_prefers_user_modified_and_extreme_values():
@@ -220,7 +220,7 @@ def test_preflight_pass_and_fail():
     before, after = _two_stats(50, 30)
     rep = preflight.run(before, after, changes, s, project.apply_changes(s, {"bridge_speed": 30}))
     assert rep.ok, rep.checks
-    before, after = _two_stats(50, 50)  # la patch non si è propagata
+    before, after = _two_stats(50, 50)  # the patch did not propagate
     rep = preflight.run(before, after, changes, s, s)
     assert not rep.ok
     assert {c.check for c in rep.checks if c.status == "fail"} == {"config", "feature_speed"}
@@ -232,10 +232,10 @@ def test_preflight_missing_feature_fails():
     empty = gcode.parse_text("; bridge_speed = 30\n; CHANGE_LAYER\n; FEATURE: Outer wall\nG1 X10 Y0 E0.4 F600\n")
     rep = preflight.run(empty, empty, changes, s, s)
     assert not rep.ok
-    assert any("assente" in c.detail for c in rep.checks)
+    assert any("missing" in c.detail for c in rep.checks)
 
 
-# --- diagnosi -------------------------------------------------------------------------------------------
+# --- diagnosis ------------------------------------------------------------------------------------------
 
 def test_sanitize_llm_output():
     raw = {"findings": [{"defect": "stringing", "severity": 5, "confidence": 1.4, "evidence": [], "location": ""},
@@ -254,7 +254,7 @@ def test_operator_diagnosis():
         diagnose.diagnose_operator("nope", 1)
 
 
-# --- scelta dello slicer ----------------------------------------------------------------------------------
+# --- slicer choice --------------------------------------------------------------------------------------
 
 def _fake_3mf(path, orca: bool):
     import zipfile
@@ -271,20 +271,20 @@ def test_slicer_follows_project_origin(tmp_path, monkeypatch):
     assert slicer.project_origin(orca_project) == "orca" and slicer.project_origin(bambu_project) == "bambu"
     monkeypatch.setattr(slicer, "slicer_bins", lambda: {"orca": "/x/orca", "bambu": "/x/bambu"})
     assert slicer.choose(orca_project) == ("/x/orca", []) and slicer.choose(bambu_project) == ("/x/bambu", [])
-    # Orca non installato: si ripiega su BambuStudio e lo si dichiara
+    # Orca not installed: fall back to BambuStudio and say so
     monkeypatch.setattr(slicer, "slicer_bins", lambda: {"bambu": "/x/bambu"})
     binary, notes = slicer.choose(orca_project)
     assert binary == "/x/bambu" and "OrcaSlicer" in notes[0]
 
 
-# --- different_settings_to_system (riapertura nello slicer) ----------------------------------------------
+# --- different_settings_to_system (reopening in the slicer) ----------------------------------------------
 
 def test_mark_different_sections_and_union():
     s = settings_fixture(filament_settings_id=["Bambu ASA"], different_settings_to_system=["wall_loops", "", ""])
     out, unknown = project.mark_different(s, ["bridge_speed", "overhang_fan_speed", "retraction_length", "zzz"])
     assert out["different_settings_to_system"] == ["bridge_speed;wall_loops", "overhang_fan_speed", "retraction_length"]
     assert unknown == ["zzz"]
-    again, _ = project.mark_different(out, ["overhang_fan_speed"])  # nessun duplicato
+    again, _ = project.mark_different(out, ["overhang_fan_speed"])  # no duplicates
     assert again["different_settings_to_system"][1] == "overhang_fan_speed"
     assert project.is_marked(again, "overhang_fan_speed") and not project.is_marked(s, "overhang_fan_speed")
 
@@ -304,6 +304,6 @@ def test_every_kb_key_has_a_section():
         keys.update(meta.get("companions", {}).keys())
         if meta.get("filament_override"):
             keys.add(meta["filament_override"])
-    keys.discard("bed_temperature")  # alias: le chiavi reali sono quelle del piano
+    keys.discard("bed_temperature")  # alias: the real keys are the plate ones
     keys.update(project._PLATE_KEYS)
     assert {k for k in keys if project.section_of(k) is None} == set()

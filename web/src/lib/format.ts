@@ -1,16 +1,16 @@
 import type { CaseState, Check, Outcome, Value } from '../api/types'
 
 export const STATE_LABEL: Record<CaseState, string> = {
-  awaiting_photos: 'In attesa di foto',
-  ready: 'Pronto per l’analisi',
-  needs_info: 'Servono informazioni',
-  diagnosed: 'Diagnosticato',
-  awaiting_approval: 'Da approvare',
-  escalated: 'Passato all’operatore',
-  done: 'Chiuso',
+  awaiting_photos: 'Awaiting photos',
+  ready: 'Ready for analysis',
+  needs_info: 'Needs information',
+  diagnosed: 'Diagnosed',
+  awaiting_approval: 'Awaiting approval',
+  escalated: 'Handed to operator',
+  done: 'Closed',
 }
 
-/** Tono del badge di stato: guida il colore, il testo resta sempre visibile. */
+/** Tone of the state badge: drives the colour, the text is always visible. */
 export const STATE_TONE: Record<CaseState, 'neutral' | 'info' | 'warn' | 'accent' | 'ok' | 'danger'> = {
   awaiting_photos: 'neutral',
   ready: 'info',
@@ -22,34 +22,34 @@ export const STATE_TONE: Record<CaseState, 'neutral' | 'info' | 'warn' | 'accent
 }
 
 export const OUTCOME_LABEL: Record<Outcome, string> = {
-  fixed: 'Difetto corretto',
-  no_defect: 'Nessun difetto',
-  escalated: 'Escalation',
-  stopped: 'Fermato dall’operatore',
+  fixed: 'Defect fixed',
+  no_defect: 'No defect',
+  escalated: 'Escalated',
+  stopped: 'Stopped by the operator',
 }
 
-export const SEVERITY_LABEL = ['assente', 'lieve', 'evidente', 'grave'] as const
+export const SEVERITY_LABEL = ['absent', 'minor', 'clear', 'severe'] as const
 
-export const SOURCE_LABEL = { llm: 'Gemma 4', rules: 'regole KB', operator: 'operatore' } as const
+export const SOURCE_LABEL = { llm: 'Gemma 4', rules: 'KB rules', operator: 'operator' } as const
 
 export const CHECK_LABEL: Record<string, string> = {
-  config: 'Valore nel G-code',
-  feature_speed: 'Velocità della feature',
-  first_layer_speed: 'Velocità primo layer',
-  extrusion_per_mm: 'Estrusione per mm',
-  fan_during: 'Ventola sulla feature',
-  hotend_setpoint: 'Temperatura ugello',
-  bed_setpoint: 'Temperatura piano',
-  retraction: 'Retrazione',
-  feature_length: 'Estensione feature',
-  volumetric_limit: 'Limite volumetrico',
-  max_volumetric_speed: 'Flusso volumetrico',
-  nozzle_range: 'Range del filamento',
-  bed_max: 'Massimo del piano',
-  slicer_ui: 'Visibile nello slicer',
+  config: 'Value in the G-code',
+  feature_speed: 'Feature speed',
+  first_layer_speed: 'First layer speed',
+  extrusion_per_mm: 'Extrusion per mm',
+  fan_during: 'Fan on the feature',
+  hotend_setpoint: 'Nozzle temperature',
+  bed_setpoint: 'Bed temperature',
+  retraction: 'Retraction',
+  feature_length: 'Feature extent',
+  volumetric_limit: 'Volumetric limit',
+  max_volumetric_speed: 'Volumetric flow',
+  nozzle_range: 'Filament range',
+  bed_max: 'Bed maximum',
+  slicer_ui: 'Visible in the slicer',
 }
 
-const nf = new Intl.NumberFormat('it-IT', { maximumFractionDigits: 3 })
+const nf = new Intl.NumberFormat('en-US', { maximumFractionDigits: 3 })
 
 export function num(value: Value | null | undefined, unit = ''): string {
   if (value === null || value === undefined) return '—'
@@ -68,11 +68,11 @@ export function duration(seconds: number | null | undefined): string {
   return `${s} s`
 }
 
-/** "+10 s", "−0,13 g", "invariato": variazione leggibile tra prima e dopo la patch. */
+/** "+10 s", "−0.13 g", "unchanged": readable change between before and after the patch. */
 export function delta(pair: [number | null, number | null] | undefined, kind: 'time' | 'grams'): string {
   if (!pair || pair[0] === null || pair[1] === null) return '—'
   const diff = pair[1] - pair[0]
-  if (Math.abs(diff) < (kind === 'time' ? 0.5 : 0.005)) return 'invariato'
+  if (Math.abs(diff) < (kind === 'time' ? 0.5 : 0.005)) return 'unchanged'
   const sign = diff > 0 ? '+' : '−'
   const abs = Math.abs(diff)
   return kind === 'time' ? `${sign}${duration(abs)}` : `${sign}${nf.format(Number(abs.toFixed(2)))} g`
@@ -82,7 +82,7 @@ export function dateTime(iso: string): string {
   const d = new Date(iso)
   return Number.isNaN(d.getTime())
     ? iso
-    : d.toLocaleString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : d.toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
 export function checkLabel(check: Check): string {

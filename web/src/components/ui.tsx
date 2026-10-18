@@ -1,10 +1,11 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode, type Ref } from 'react'
 import { ApiError } from '../api'
 import type { CaseState } from '../api/types'
 import { STATE_LABEL, STATE_TONE } from '../lib/format'
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: 'primary' | 'danger' | 'ghost' | 'default'
+  ref?: Ref<HTMLButtonElement>
+  variant?: 'primary' | 'danger' | 'ghost' | 'ok' | 'default'
   size?: 'sm' | 'md'
   busy?: boolean
 }
@@ -86,13 +87,62 @@ export function Notice({
   )
 }
 
-export function ErrorNotice({ error, title = 'Operazione non riuscita' }: { error: unknown; title?: string }) {
+export function ErrorNotice({ error, title = 'Operation failed' }: { error: unknown; title?: string }) {
   if (!error) return null
   const message = error instanceof ApiError || error instanceof Error ? error.message : String(error)
   return (
     <Notice tone="danger" title={title}>
       <span>{message}</span>
     </Notice>
+  )
+}
+
+/**
+ * Button that asks before acting: the first click turns it into question + confirm + cancel, inline.
+ * Used for actions that discard data (delete, go back), where a modal would be heavier than the question.
+ */
+export function ConfirmButton({
+  children,
+  question,
+  confirmLabel,
+  onConfirm,
+  busy = false,
+  variant = 'ghost',
+  size = 'md',
+  title,
+}: {
+  children: ReactNode
+  question: ReactNode
+  confirmLabel: string
+  onConfirm: () => void
+  busy?: boolean
+  variant?: ButtonProps['variant']
+  size?: ButtonProps['size']
+  title?: string
+}) {
+  const [asking, setAsking] = useState(false)
+  const confirmRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (asking) confirmRef.current?.focus()
+  }, [asking])
+
+  if (!asking) {
+    return (
+      <Button variant={variant} size={size} title={title} onClick={() => setAsking(true)}>
+        {children}
+      </Button>
+    )
+  }
+  return (
+    <span className="confirm" role="group" aria-label="Confirmation">
+      <span className="confirm__question">{question}</span>
+      <Button ref={confirmRef} variant="danger" size={size} busy={busy} onClick={onConfirm}>
+        {confirmLabel}
+      </Button>
+      <Button variant="ghost" size={size} disabled={busy} onClick={() => setAsking(false)}>
+        Cancel
+      </Button>
+    </span>
   )
 }
 

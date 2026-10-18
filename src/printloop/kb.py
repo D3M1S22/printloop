@@ -1,4 +1,4 @@
-"""Accesso alla knowledge base deterministica (kb.yaml)."""
+"""Access to the deterministic knowledge base (kb.yaml)."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -35,7 +35,7 @@ def param(key: str) -> dict:
     try:
         return load()["params"][key]
     except KeyError as exc:
-        raise KeyError(f"parametro '{key}' non presente nella KB") from exc
+        raise KeyError(f"parameter '{key}' not in the KB") from exc
 
 
 def candidates(defect: str) -> list[Candidate]:
@@ -53,7 +53,7 @@ def escalation(defect: str) -> str | None:
 
 
 def bounds(key: str, settings: dict) -> tuple[float, float]:
-    """Range ammesso per la chiave, inclusi i limiti del materiale."""
+    """Allowed range for the key, material limits included."""
     meta = param(key)
     raw = meta["bounds"]
     if raw == "filament_range":

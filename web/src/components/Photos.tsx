@@ -3,7 +3,7 @@ import { Button } from './ui'
 
 export const MAX_PHOTOS = 4
 
-/** Immagine del caso con ripiego se il file non è disponibile (es. modalità fixture). */
+/** Case image with a fallback when the file is unavailable (e.g. fixture mode). */
 function CasePhoto({ url, name }: { url: string; name: string }) {
   const [failed, setFailed] = useState(false)
   if (failed) return <div className="photo__placeholder">{name}</div>
@@ -11,7 +11,7 @@ function CasePhoto({ url, name }: { url: string; name: string }) {
     <img
       className="photo__img"
       src={url}
-      alt={`Foto del pezzo: ${name}`}
+      alt={`Photo of the part: ${name}`}
       loading="lazy"
       onError={() => setFailed(true)}
     />
@@ -21,7 +21,7 @@ function CasePhoto({ url, name }: { url: string; name: string }) {
 const fileName = (path: string) => path.split('/').pop() ?? path
 
 export function PhotoGrid({ urls }: { urls: string[] }) {
-  if (urls.length === 0) return <p className="muted">Nessuna foto per questa iterazione.</p>
+  if (urls.length === 0) return <p className="muted">No photos for this iteration.</p>
   return (
     <div className="photos">
       {urls.map((url) => (
@@ -36,7 +36,7 @@ export function PhotoGrid({ urls }: { urls: string[] }) {
   )
 }
 
-/** Anteprime locali dei file scelti; gli object URL vengono rilasciati quando cambiano. */
+/** Local previews of the chosen files; object URLs are released when they change. */
 function usePreviews(files: File[]) {
   const previews = useMemo(() => files.map((f) => ({ file: f, url: URL.createObjectURL(f) })), [files])
   useEffect(() => () => previews.forEach((p) => URL.revokeObjectURL(p.url)), [previews])
@@ -64,8 +64,8 @@ export function PhotoUploader({
     if (!incoming) return
     const images = [...incoming].filter((f) => f.type.startsWith('image/'))
     const next = [...files, ...images]
-    if (next.length > MAX_PHOTOS) setError(`Al massimo ${MAX_PHOTOS} foto: tenute le prime ${MAX_PHOTOS}.`)
-    else if (images.length < incoming.length) setError('Solo immagini (JPG, PNG, WebP).')
+    if (next.length > MAX_PHOTOS) setError(`At most ${MAX_PHOTOS} photos: kept the first ${MAX_PHOTOS}.`)
+    else if (images.length < incoming.length) setError('Images only (JPG, PNG, WebP).')
     else setError(null)
     setFiles(next.slice(0, MAX_PHOTOS))
   }
@@ -94,10 +94,10 @@ export function PhotoUploader({
         onDragLeave={() => setOver(false)}
         onDrop={onDrop}
       >
-        <strong>{reprint ? 'Foto della ristampa' : 'Foto del pezzo'}: trascina qui o scegli</strong>
+        <strong>{reprint ? 'Photos of the reprint' : 'Photos of the part'}: drop here or browse</strong>
         <span className="muted">
-          1–{MAX_PHOTOS} foto: frontale, laterale a 45°, dall'alto e un primo piano del difetto. Luce diffusa, sfondo
-          neutro.
+          1–{MAX_PHOTOS} photos: front, side at 45°, top and a close-up of the defect. Diffuse light, neutral
+          background.
         </span>
         <input
           id={inputId}
@@ -120,7 +120,7 @@ export function PhotoUploader({
         <div className="photos">
           {previews.map(({ file, url }) => (
             <figure className="photo" key={url}>
-              <img className="photo__img" src={url} alt={`Anteprima: ${file.name}`} />
+              <img className="photo__img" src={url} alt={`Preview: ${file.name}`} />
               <figcaption>{file.name}</figcaption>
               <Button
                 size="sm"
@@ -128,24 +128,24 @@ export function PhotoUploader({
                 className="photo__remove"
                 onClick={() => setFiles((prev) => prev.filter((f) => f !== file))}
               >
-                Rimuovi
+                Remove
               </Button>
             </figure>
           ))}
         </div>
       )}
       <div className="field">
-        <label htmlFor={noteId}>Nota per la diagnosi (facoltativa)</label>
+        <label htmlFor={noteId}>Note for the diagnosis (optional)</label>
         <textarea
           id={noteId}
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="Es. i ponti centrali cedono, fili tra i pilastri…"
+          placeholder="E.g. the middle bridges sag, strings between the pillars…"
         />
       </div>
       <div className="btn-row">
         <Button type="submit" variant="primary" busy={busy} disabled={files.length === 0}>
-          Carica {files.length > 0 ? `${files.length} foto` : 'le foto'}
+          Upload {files.length > 0 ? `${files.length} ${files.length === 1 ? 'photo' : 'photos'}` : 'the photos'}
         </Button>
       </div>
     </form>

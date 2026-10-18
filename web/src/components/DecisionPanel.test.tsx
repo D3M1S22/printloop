@@ -6,7 +6,7 @@ import { DecisionPanel } from './DecisionPanel'
 const options: EditOption[] = [
   {
     key: 'bridge_speed',
-    label: 'Velocità dei bridge',
+    label: 'Bridge speed',
     unit: 'mm/s',
     step: 20,
     direction: 'down',
@@ -17,7 +17,7 @@ const options: EditOption[] = [
   },
   {
     key: 'bridge_flow',
-    label: 'Flusso dei bridge',
+    label: 'Bridge flow',
     unit: 'x',
     step: 0.05,
     direction: 'down',
@@ -35,50 +35,50 @@ function setup(preflightOk = true) {
 }
 
 describe('DecisionPanel', () => {
-  it('approva senza motivazione se il pre-flight è superato', async () => {
+  it('approves without a reason when the pre-flight passed', async () => {
     const { onDecide, user } = setup()
-    await user.click(screen.getByRole('button', { name: 'Approva e prepara la ristampa' }))
+    await user.click(screen.getByRole('button', { name: 'Approve and prepare the reprint' }))
     expect(onDecide).toHaveBeenCalledWith({ approved: true, reason: '' })
   })
 
-  it('chiede la motivazione per rifiutare', async () => {
+  it('asks for a reason to reject', async () => {
     const { onDecide, user } = setup()
-    await user.click(screen.getByRole('button', { name: 'Rifiuta' }))
+    await user.click(screen.getByRole('button', { name: 'Reject' }))
     expect(onDecide).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent('Serve una motivazione')
-    await user.type(screen.getByLabelText(/Motivazione/), 'prima la ventola')
-    await user.click(screen.getByRole('button', { name: 'Rifiuta' }))
-    expect(onDecide).toHaveBeenCalledWith({ approved: false, reason: 'prima la ventola' })
+    expect(screen.getByRole('alert')).toHaveTextContent('A reason is required')
+    await user.type(screen.getByLabelText(/Reason/), 'fan first')
+    await user.click(screen.getByRole('button', { name: 'Reject' }))
+    expect(onDecide).toHaveBeenCalledWith({ approved: false, reason: 'fan first' })
   })
 
-  it('con pre-flight fallito serve la motivazione anche per approvare', async () => {
+  it('with a failed pre-flight approving needs a reason too', async () => {
     const { onDecide, user } = setup(false)
-    await user.click(screen.getByRole('button', { name: 'Approva comunque' }))
+    await user.click(screen.getByRole('button', { name: 'Approve anyway' }))
     expect(onDecide).not.toHaveBeenCalled()
   })
 
-  it('invia solo i valori diversi da quelli attuali', async () => {
+  it('sends only the values that differ from the current ones', async () => {
     const { onDecide, user } = setup()
-    await user.click(screen.getByRole('button', { name: 'Modifica i valori' }))
-    const flow = screen.getByLabelText('Flusso dei bridge')
+    await user.click(screen.getByRole('button', { name: 'Edit the values' }))
+    const flow = screen.getByLabelText('Bridge flow')
     await user.clear(flow)
     await user.type(flow, '0.9')
-    await user.click(screen.getByRole('button', { name: 'Ricalcola slicing e verifica' }))
+    await user.click(screen.getByRole('button', { name: 'Re-slice and verify' }))
     expect(onDecide).toHaveBeenCalledWith({
       approved: false,
-      reason: 'valori modificati dall’operatore',
+      reason: 'values edited by the operator',
       edits: { bridge_speed: 80, bridge_flow: 0.9 },
     })
   })
 
-  it('blocca i valori fuori dai limiti', async () => {
+  it('blocks values out of bounds', async () => {
     const { onDecide, user } = setup()
-    await user.click(screen.getByRole('button', { name: 'Modifica i valori' }))
-    const speed = screen.getByLabelText('Velocità dei bridge')
+    await user.click(screen.getByRole('button', { name: 'Edit the values' }))
+    const speed = screen.getByLabelText('Bridge speed')
     await user.clear(speed)
     await user.type(speed, '5')
-    await user.click(screen.getByRole('button', { name: 'Ricalcola slicing e verifica' }))
+    await user.click(screen.getByRole('button', { name: 'Re-slice and verify' }))
     expect(onDecide).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent('fuori dai limiti')
+    expect(screen.getByRole('alert')).toHaveTextContent('out of bounds')
   })
 })

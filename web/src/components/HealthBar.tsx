@@ -2,14 +2,14 @@ import { USE_FIXTURES, WrongBackendError } from '../api'
 import { useHealth } from '../api/hooks'
 import { Badge } from './ui'
 
-/** Stato dei servizi: chi fa la diagnosi (Gemma su AMD o operatore) e quale slicer verifica le patch. */
+/** Service status: who diagnoses (Gemma on AMD or the operator) and which slicer verifies the patches. */
 export function HealthBar() {
   const { data, error } = useHealth()
   if (error) {
     return (
-      <div className="health" aria-label="Stato dei servizi" title={error.message}>
+      <div className="health" aria-label="Service status" title={error.message}>
         <Badge tone="danger">
-          {error instanceof WrongBackendError ? 'Backend sbagliato sulla porta API' : 'Backend non raggiungibile'}
+          {error instanceof WrongBackendError ? 'Wrong backend on the API port' : 'Backend unreachable'}
         </Badge>
       </div>
     )
@@ -18,13 +18,13 @@ export function HealthBar() {
   const llm = data.llm?.mode === 'llm'
   const slicer = data.slicer?.available ?? false
   return (
-    <div className="health" aria-label="Stato dei servizi">
-      {USE_FIXTURES && <Badge tone="warn">Dati di esempio</Badge>}
+    <div className="health" aria-label="Service status">
+      {USE_FIXTURES && <Badge tone="warn">Sample data</Badge>}
       <Badge tone={llm ? 'ok' : 'warn'}>
-        {llm ? `Diagnosi: ${data.llm.model ?? 'LLM'}` : 'Diagnosi: operatore (LLM offline)'}
+        {llm ? `Diagnosis: ${data.llm.model ?? 'LLM'}` : 'Diagnosis: operator (LLM offline)'}
       </Badge>
       <Badge tone={slicer ? 'ok' : 'danger'}>
-        {slicer ? `Slicer: ${data.slicer.version ?? 'ok'}` : 'Slicer non trovato'}
+        {slicer ? `Slicer: ${data.slicer.version ?? 'ok'}` : 'Slicer not found'}
       </Badge>
     </div>
   )

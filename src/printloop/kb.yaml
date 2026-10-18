@@ -1,89 +1,89 @@
-# Knowledge base deterministica di PrintLoop (docs/printloop/03_ARCHITECTURE.md §1 e §4.2).
+# PrintLoop deterministic knowledge base (docs/printloop/03_ARCHITECTURE.md §1 and §4.2).
 #
-# Regola: un parametro entra qui solo se ha un `check` sul G-code (vedi printloop/preflight.py).
-# Chiavi verificate su BambuStudio 2.8.2 (P1S 0.4) con --export-settings; OrcaSlicer usa gli stessi nomi.
+# Rule: a parameter goes in here only if it has a `check` on the G-code (see printloop/preflight.py).
+# Keys verified on BambuStudio 2.8.2 (P1S 0.4) with --export-settings; OrcaSlicer uses the same names.
 #
-# params.<chiave>:
-#   bounds: [min, max] statici, oppure "filament_range" (nozzle_temperature_range_low/high del filamento)
-#   step:   passo massimo per iterazione (il validatore accetta fino a 2x per scelte dell'operatore)
-#   check:  tipo di verifica sul G-code + argomenti
-#   alias:  chiave virtuale risolta su più chiavi reali (es. temperatura del piano in base a curr_bed_type)
+# params.<key>:
+#   bounds: static [min, max], or "filament_range" (the filament's nozzle_temperature_range_low/high)
+#   step:   maximum step per iteration (the validator accepts up to 2x for operator choices)
+#   check:  type of G-code check + arguments
+#   alias:  virtual key resolved to several real keys (e.g. bed temperature depending on curr_bed_type)
 
 params:
   bridge_speed:
-    label: Velocità dei bridge
+    label: Bridge speed
     unit: mm/s
     bounds: [10, 100]
     step: 20
     check: {type: feature_speed, features: [Bridge]}
   bridge_flow:
-    label: Flusso dei bridge
+    label: Bridge flow
     unit: "x"
     bounds: [0.7, 1.2]
     step: 0.05
     check: {type: extrusion_per_mm, features: [Bridge]}
   filament_flow_ratio:
-    label: Flow ratio del filamento
+    label: Filament flow ratio
     unit: "x"
     bounds: [0.8, 1.15]
     step: 0.04
     check: {type: extrusion_per_mm, features: [Outer wall, Inner wall]}
   nozzle_temperature:
-    label: Temperatura ugello
+    label: Nozzle temperature
     unit: °C
     bounds: filament_range
     step: 5
     check: {type: hotend_setpoint, layer: 1}
   nozzle_temperature_initial_layer:
-    label: Temperatura ugello primo layer
+    label: First layer nozzle temperature
     unit: °C
     bounds: filament_range
     step: 5
     check: {type: hotend_setpoint, layer: 0}
   bed_temperature:
-    label: Temperatura del piano
+    label: Bed temperature
     unit: °C
     bounds: [20, 110]
     step: 5
     alias: bed_temperature
     check: {type: bed_setpoint, layer: 1}
   retraction_length:
-    label: Lunghezza di retrazione
+    label: Retraction length
     unit: mm
     bounds: [0.2, 2.0]
     step: 0.2
-    # Se il filamento ha un override (filament_retraction_length != nil) si modifica quello.
+    # If the filament has an override (filament_retraction_length != nil), that one is changed.
     filament_override: filament_retraction_length
     check: {type: retraction}
   overhang_fan_speed:
-    label: Ventola su overhang e bridge
+    label: Overhang and bridge fan
     unit: "%"
     bounds: [0, 100]
     step: 20
     check: {type: fan_during, features: [Bridge, Overhang wall]}
   initial_layer_speed:
-    label: Velocità primo layer
+    label: First layer speed
     unit: mm/s
     bounds: [10, 100]
     step: 10
     check: {type: first_layer_speed, features: [Outer wall, Inner wall]}
   brim_width:
-    label: Larghezza brim
+    label: Brim width
     unit: mm
     bounds: [0, 15]
     step: 4
-    # Con brim_type auto o assente la larghezza non ha effetto: il validatore aggiunge questa modifica.
+    # With brim_type auto or none the width has no effect: the validator adds this change.
     companions: {brim_type: {when: [no_brim, auto_brim], set: outer_only}}
     check: {type: feature_length, features: [Brim]}
   filament_max_volumetric_speed:
-    label: Flusso volumetrico massimo
+    label: Max volumetric speed
     unit: mm³/s
     bounds: [2, 40]
     step: 3
     check: {type: volumetric_limit}
 
-# Per ogni difetto: candidati in ordine di preferenza, con la direzione ammessa.
-# `escalate` = la causa tipica non si corregge dal preset: il sistema lo dice e passa la mano all'umano.
+# For each defect: candidates in order of preference, with the allowed direction.
+# `escalate` = the typical cause cannot be fixed from the preset: the system says so and hands over to a human.
 defects:
   bridge_sagging:
     candidates:
@@ -117,17 +117,17 @@ defects:
       - {key: bed_temperature, direction: up}
   layer_shift:
     candidates: []
-    escalate: "Causa tipicamente meccanica (cinghie, pulegge, collisioni con il pezzo): serve un controllo manuale della stampante."
+    escalate: "Typically a mechanical cause (belts, pulleys, collisions with the part): the printer needs a manual check."
   spaghetti:
     candidates: []
-    escalate: "Di solito è la conseguenza di un distacco o di un pezzo urtato: controllare adesione e primo layer, poi ristampare con foto del difetto iniziale."
+    escalate: "Usually the result of a detached or knocked-over part: check adhesion and the first layer, then reprint with photos of the initial defect."
   other:
     candidates: []
-    escalate: "Difetto fuori tassonomia: nessuna patch automatica."
+    escalate: "Defect outside the taxonomy: no automatic patch."
   none:
     candidates: []
 
-# Limite massimo del piano per materiale (oltre, il validatore rifiuta anche se dentro `bounds`).
+# Maximum bed temperature per material (above it the validator rejects, even within `bounds`).
 material_bed_max:
   PLA: 65
   PETG: 85

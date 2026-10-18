@@ -1,8 +1,8 @@
-"""Impostazioni di un progetto 3MF (Metadata/project_settings.config) di BambuStudio / OrcaSlicer.
+"""Settings of a BambuStudio / OrcaSlicer 3MF project (Metadata/project_settings.config).
 
-I valori sono stringhe o liste di stringhe (una voce per filamento o per variante di estrusore), a volte
-con il suffisso '%'. Li leggiamo come numeri e li riscriviamo nello stesso formato. Limite dichiarato
-dell'MVP: progetti mono-filamento; nelle liste la patch scrive tutte le voci.
+Values are strings or lists of strings (one entry per filament or per extruder variant), sometimes with
+a '%' suffix. We read them as numbers and write them back in the same format. Declared MVP limit:
+single-filament projects; in lists the patch writes every entry.
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 PROJECT_SETTINGS = "Metadata/project_settings.config"
-# File del 3MF che descrivono uno slicing precedente: dopo una patch non valgono più.
+# Files of the 3MF that describe a previous slice: no longer valid after a patch.
 _STALE_PREFIXES = ("Metadata/plate_", "Metadata/slice_info.config", "Metadata/top_", "Metadata/pick_")
 _STALE_KEEP = ("Metadata/plate_1.json",)
 
@@ -24,10 +24,10 @@ BED_KEYS = {
     "Supertack Plate": "supertack_plate_temp",
 }
 
-# Sezione di ogni chiave reale che PrintLoop può scrivere, nell'ordine di `different_settings_to_system`:
-# [process, filamento 1..n, stampante]. Serve perché OrcaSlicer, riaprendo un progetto, riporta al valore del
-# preset di sistema ogni chiave NON elencata in quella lista (PresetBundle::project_different_keys +
-# Preset::load_external_config -> update_non_diff_values_to_base_config). Vedi docs/printloop/01_RESEARCH_STACK.md.
+# Section of every real key PrintLoop can write, in the order of `different_settings_to_system`:
+# [process, filament 1..n, printer]. Needed because OrcaSlicer, when it reopens a project, resets to the system
+# preset value every key NOT listed there (PresetBundle::project_different_keys +
+# Preset::load_external_config -> update_non_diff_values_to_base_config). See docs/printloop/01_RESEARCH_STACK.md.
 _PLATE_KEYS = [f"{p}{suffix}" for p in ("cool_plate_temp", "eng_plate_temp", "hot_plate_temp", "textured_plate_temp",
                                         "supertack_plate_temp", "textured_cool_plate_temp")
                for suffix in ("", "_initial_layer")]
@@ -41,7 +41,7 @@ SECTION_OF: dict[str, str] = {
     **{k: "filament" for k in _PLATE_KEYS},
 }
 
-# Densità di riserva (g/cm³) se il preset non la riporta: serve solo a stimare i grammi.
+# Fallback density (g/cm³) when the preset lacks it: only used to estimate grams.
 DEFAULT_DENSITY = {"PLA": 1.24, "PETG": 1.27, "ABS": 1.04, "ASA": 1.07, "TPU": 1.21, "PA": 1.12, "PC": 1.2, "PP": 0.9}
 
 
@@ -54,9 +54,9 @@ def read_settings(path: str | Path) -> dict[str, Any]:
         with zipfile.ZipFile(path) as zf:
             return json.loads(zf.read(PROJECT_SETTINGS))
     except KeyError as exc:
-        raise ProjectError(f"{path}: manca {PROJECT_SETTINGS} (serve un progetto 3MF di BambuStudio/OrcaSlicer)") from exc
+        raise ProjectError(f"{path}: {PROJECT_SETTINGS} is missing (a BambuStudio/OrcaSlicer 3MF project is required)") from exc
     except zipfile.BadZipFile as exc:
-        raise ProjectError(f"{path}: non è un file 3MF valido") from exc
+        raise ProjectError(f"{path}: not a valid 3MF file") from exc
 
 
 def _first(raw: Any) -> Any:
@@ -64,7 +64,7 @@ def _first(raw: Any) -> Any:
 
 
 def to_number(raw: Any) -> float | None:
-    """'0.98' -> 0.98, ['220'] -> 220.0, '50%' -> 50.0, 'nil' o testo -> None."""
+    """'0.98' -> 0.98, ['220'] -> 220.0, '50%' -> 50.0, 'nil' or text -> None."""
     value = _first(raw)
     if value is None:
         return None
@@ -82,7 +82,7 @@ def _fmt(value: float) -> str:
 
 
 def format_like(original: Any, value: float | str) -> Any:
-    """Scrive `value` con lo stesso formato del valore originale (lista o scalare, con o senza '%')."""
+    """Writes `value` in the same format as the original value (list or scalar, with or without '%')."""
     sample = str(_first(original)) if original is not None else ""
     if isinstance(value, str):
         text = value
@@ -121,14 +121,14 @@ def density(settings: dict) -> float:
 
 
 def modified_keys(settings: dict) -> set[str]:
-    """Chiavi che l'utente ha cambiato rispetto ai profili di sistema (registrate dallo slicer nel progetto)."""
+    """Keys the user changed against the system profiles (recorded by the slicer in the project)."""
     raw = settings.get("different_settings_to_system") or []
     raw = raw if isinstance(raw, list) else [raw]
     return {k.strip() for chunk in raw for k in str(chunk).split(";") if k.strip()}
 
 
 def resolve_keys(settings: dict, key: str, meta: dict | None = None) -> list[str]:
-    """Chiavi reali da modificare per una chiave della KB (alias e override di filamento)."""
+    """Real keys to change for a KB key (aliases and filament overrides)."""
     meta = meta or {}
     if meta.get("alias") == "bed_temperature":
         base = bed_key(settings)
@@ -140,22 +140,22 @@ def resolve_keys(settings: dict, key: str, meta: dict | None = None) -> list[str
 
 
 def current_value(settings: dict, key: str, meta: dict | None = None) -> float | None:
-    """Valore effettivo della chiave della KB (per gli alias: la prima chiave reale)."""
+    """Effective value of the KB key (for aliases: the first real key)."""
     return get(settings, resolve_keys(settings, key, meta)[0])
 
 
 def apply_changes(settings: dict, changes: dict[str, float | str]) -> dict:
-    """Restituisce una copia delle impostazioni con `changes` (chiavi reali) applicate nel formato originale."""
+    """Returns a copy of the settings with `changes` (real keys) applied in the original format."""
     patched = dict(settings)
     for key, value in changes.items():
         if key not in settings:
-            raise ProjectError(f"chiave '{key}' assente nel progetto")
+            raise ProjectError(f"key '{key}' missing in the project")
         patched[key] = format_like(settings[key], value)
     return patched
 
 
 def write_patched(src: str | Path, dst: str | Path, settings: dict) -> Path:
-    """Copia il 3MF sostituendo le impostazioni e togliendo G-code e anteprime dello slicing precedente."""
+    """Copies the 3MF replacing the settings and dropping G-code and previews of the previous slice."""
     dst = Path(dst)
     dst.parent.mkdir(parents=True, exist_ok=True)
     # Sanitize known keys that OrcaSlicer rejects if negative (BambuStudio default -1)
@@ -189,7 +189,7 @@ def num_filaments(settings: dict) -> int:
 
 
 def different_lists(settings: dict) -> list[str]:
-    """`different_settings_to_system` come [process, filamento 1..n, stampante], completato con stringhe vuote."""
+    """`different_settings_to_system` as [process, filament 1..n, printer], padded with empty strings."""
     size = num_filaments(settings) + 2
     raw = settings.get("different_settings_to_system")
     values = [str(v) for v in raw] if isinstance(raw, list) else ([str(raw)] if raw else [])
@@ -202,9 +202,9 @@ def _section_indices(settings: dict, section: str) -> list[int]:
 
 
 def mark_different(settings: dict, keys) -> tuple[dict, list[str]]:
-    """Dichiara `keys` come modificate rispetto al preset di sistema, così lo slicer le mantiene alla riapertura.
+    """Declares `keys` as modified against the system preset, so the slicer keeps them when reopening.
 
-    Unione con quanto già elencato; restituisce (impostazioni aggiornate, chiavi senza sezione nota).
+    Union with what is already listed; returns (updated settings, keys without a known section).
     """
     lists = different_lists(settings)
     unknown = []
@@ -223,7 +223,7 @@ def mark_different(settings: dict, keys) -> tuple[dict, list[str]]:
 
 
 def is_marked(settings: dict, key: str) -> bool:
-    """True se la chiave è elencata come modificata in tutte le voci della sua sezione."""
+    """True if the key is listed as modified in every entry of its section."""
     section = section_of(key)
     if section is None:
         return False
@@ -232,7 +232,7 @@ def is_marked(settings: dict, key: str) -> bool:
 
 
 def rewrite_settings(path: str | Path, settings: dict) -> Path:
-    """Sostituisce solo Metadata/project_settings.config in un 3MF, lasciando intatti G-code e metadati."""
+    """Replaces only Metadata/project_settings.config in a 3MF, leaving G-code and metadata intact."""
     path = Path(path)
     tmp = path.with_suffix(".tmp.3mf")
     with zipfile.ZipFile(path) as zin, zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zout:

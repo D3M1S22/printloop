@@ -1,9 +1,9 @@
-# Segreti (chiave vLLM, access code LAN della stampante)
+# Secrets (vLLM key, printer LAN access code)
 .env
 .env.*
 !.env.example
 
-# Dati: foto, frame camera, G-code e preset generati restano locali
+# Data: photos, camera frames, generated G-code and presets stay local
 data/*
 !data/README.md
 runs/
@@ -27,4 +27,5 @@ dist/
 .vscode/
 .idea/
 .DS_Store
-.log
+
+*.log

@@ -1,4 +1,4 @@
-"""CLI di PrintLoop: `uv run printloop --help`."""
+"""PrintLoop CLI: `uv run printloop --help`."""
 from __future__ import annotations
 
 import argparse
@@ -14,27 +14,31 @@ from printloop.taxonomy import label
 
 def _print_case(case: Case) -> None:
     it = case.current
-    print(f"caso {case.id} · {case.name} · stato {case.state}" + (f" · esito {case.outcome}" if case.outcome else ""))
-    print(f"  {case.printer} · {case.material} · iterazione {it.n}/{case.max_iterations + 1}")
+    print(f"case {case.id} · {case.name} · state {case.state}" + (f" · outcome {case.outcome}" if case.outcome else ""))
+    print(f"  {case.printer} · {case.material} · iteration {it.n}/{case.max_iterations + 1}")
     if case.message:
         print(f"  {case.message}")
     if it.diagnosis:
         d = it.diagnosis
-        print(f"  diagnosi ({d.source}): {label(d.primary)} severità {d.severity}/3 confidenza {d.confidence:.2f}")
+        print(f"  diagnosis ({d.source}): {label(d.primary)} severity {d.severity}/3 confidence {d.confidence:.2f}")
     if it.proposal and it.proposal.changes:
         p = it.proposal
         print(f"  patch ({p.source}):")
         for c in p.changes:
             print(f"    {c.key}: {c.before} → {c.after} {c.unit}  {c.reason}")
         for a in p.rejected_attempts:
-            print(f"    scartata in {a.stage}: {a.reason}")
+            print(f"    discarded at {a.stage}: {a.reason}")
     if it.preflight:
-        print(f"  pre-flight: {'OK' if it.preflight.ok else 'FALLITO'}")
+        print(f"  pre-flight: {'OK' if it.preflight.ok else 'FAILED'}")
         for c in it.preflight.checks + it.preflight.limits:
             print(f"    [{c.status:4}] {c.check:<20} {c.target:<28} {c.before} → {c.after}  {c.detail}")
-        print(f"    effetti: {it.preflight.side_effects}")
+        print(f"    side effects: {it.preflight.side_effects}")
     if it.sliced_3mf:
-        print(f"  file da stampare: {loop.case_dir(case.id) / it.sliced_3mf}")
+        print(f"  file to print: {loop.case_dir(case.id) / it.sliced_3mf}")
+    targets = loop.rewind_targets(case)
+    if targets:
+        last = targets[-1]
+        print(f"  step back: printloop rewind {case.id} --iteration {last['iteration']} --step {last['step']}")
 
 
 def _parse_edits(items: list[str] | None) -> dict[str, float] | None:
@@ -56,7 +60,7 @@ def _placeholder_photo() -> bytes:
 
 
 def cmd_demo(args) -> None:
-    """Loop completo offline su un caso del test set, con diagnosi dichiarate (severità 3 → 2 → 1)."""
+    """Full offline loop on a test set case, with stated diagnoses (severity 3 → 2 → 1)."""
     outdir = Path(args.testset)
     if not (outdir / args.case / "project.3mf").exists():
         testset.build_testset(outdir, slice_cases=False)
@@ -64,9 +68,9 @@ def cmd_demo(args) -> None:
     defect = manifest["induced_defect"]
     case = loop.create(outdir / args.case / "project.3mf", f"demo {args.case}")
     for severity in (3, 2, 1):
-        loop.add_photos(case.id, [("placeholder.jpg", _placeholder_photo())], note="demo offline")
+        loop.add_photos(case.id, [("placeholder.jpg", _placeholder_photo())], note="offline demo")
         case = loop.diagnose_case(case.id, mode="operator", defect=defect, severity=severity)
-        print(f"\n=== iterazione {case.current.n}: {label(defect)} severità {severity}")
+        print(f"\n=== iteration {case.current.n}: {label(defect)} severity {severity}")
         if case.state != "diagnosed":
             _print_case(case)
             break
@@ -74,32 +78,32 @@ def cmd_demo(args) -> None:
         _print_case(case)
         if case.state != "awaiting_approval":
             break
-        case = loop.decide(case.id, approved=True, reason="demo: approvata")
-    print(f"\nesito: {case.outcome} · patch attesa dal manifest: {manifest['expected_patch']}")
+        case = loop.decide(case.id, approved=True, reason="demo: approved")
+    print(f"\noutcome: {case.outcome} · patch expected by the manifest: {manifest['expected_patch']}")
     print(f"audit: {loop.case_dir(case.id) / 'audit.jsonl'}")
 
 
 def main(argv: list[str] | None = None) -> None:
-    ap = argparse.ArgumentParser(prog="printloop", description="PrintLoop: foto → diagnosi → patch verificata")
+    ap = argparse.ArgumentParser(prog="printloop", description="PrintLoop: photos → diagnosis → verified patch")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    sub.add_parser("status", help="slicer, LLM e configurazione")
-    p = sub.add_parser("coupon", help="ricostruisce examples/coupon dal modello e dai preset di sistema")
-    p = sub.add_parser("testset", help="progetti con difetti indotti + manifest (ground truth)")
+    sub.add_parser("status", help="slicer, LLM and configuration")
+    p = sub.add_parser("coupon", help="rebuilds examples/coupon from the model and the system presets")
+    p = sub.add_parser("testset", help="projects with induced defects + manifest (ground truth)")
     p.add_argument("--out", default=str(testset.DEFAULT_TESTSET_DIR))
     p.add_argument("--no-slice", action="store_true")
-    p.add_argument("--bed", help='piatto reale, es. "Textured PEI Plate" (default: quello del coupon)')
-    p = sub.add_parser("inspect", help="statistiche del G-code (fa lo slicing se riceve un 3MF)")
+    p.add_argument("--bed", help='actual plate, e.g. "Textured PEI Plate" (default: the coupon\'s)')
+    p = sub.add_parser("inspect", help="G-code statistics (slices first when given a 3MF)")
     p.add_argument("file")
-    sub.add_parser("list", help="casi esistenti")
-    p = sub.add_parser("new", help="nuovo caso da un progetto 3MF")
+    sub.add_parser("list", help="existing cases")
+    p = sub.add_parser("new", help="new case from a 3MF project")
     p.add_argument("project")
     p.add_argument("--name")
-    p = sub.add_parser("photos", help="carica le foto dell'iterazione corrente")
+    p = sub.add_parser("photos", help="upload photos for the current iteration")
     p.add_argument("case_id")
     p.add_argument("files", nargs="+")
     p.add_argument("--note", default="")
-    p = sub.add_parser("diagnose", help="diagnosi (LLM se configurato, altrimenti --defect)")
+    p = sub.add_parser("diagnose", help="diagnosis (LLM if configured, otherwise --defect)")
     p.add_argument("case_id")
     p.add_argument("--defect")
     p.add_argument("--severity", type=int)
@@ -112,13 +116,22 @@ def main(argv: list[str] | None = None) -> None:
         p = sub.add_parser(name)
         p.add_argument("case_id")
         p.add_argument("--reason", default="")
-        p.add_argument("--set", nargs="*", metavar="KEY=VALUE", help="valori scelti dall'operatore")
-    p = sub.add_parser("stop", help="ferma il loop")
+        p.add_argument("--set", nargs="*", metavar="KEY=VALUE", help="values chosen by the operator")
+    p = sub.add_parser("stop", help="stops the loop")
     p.add_argument("case_id")
     p.add_argument("--reason", default="")
+    p = sub.add_parser("confirm", help="the reprint is good: close the case as fixed")
+    p.add_argument("case_id")
+    p.add_argument("--note", default="")
+    p = sub.add_parser("rewind", help="go back to an earlier step (later data is archived in discarded/)")
+    p.add_argument("case_id")
+    p.add_argument("--iteration", type=int, required=True)
+    p.add_argument("--step", required=True, choices=list(loop.STEPS))
+    p = sub.add_parser("delete", help="delete a case and all its files")
+    p.add_argument("case_id")
     p = sub.add_parser("show")
     p.add_argument("case_id")
-    p = sub.add_parser("demo", help="loop completo offline su un caso del test set")
+    p = sub.add_parser("demo", help="full offline loop on a test set case")
     p.add_argument("--case", default="C1_bridge_speed")
     p.add_argument("--testset", default=str(testset.DEFAULT_TESTSET_DIR))
 
@@ -155,12 +168,19 @@ def main(argv: list[str] | None = None) -> None:
             _print_case(loop.decide(args.case_id, args.cmd == "approve", args.reason, _parse_edits(args.set)))
         elif args.cmd == "stop":
             _print_case(loop.decide(args.case_id, False, args.reason, stop=True))
+        elif args.cmd == "confirm":
+            _print_case(loop.confirm_success(args.case_id, args.note))
+        elif args.cmd == "rewind":
+            _print_case(loop.rewind(args.case_id, args.iteration, args.step))
+        elif args.cmd == "delete":
+            loop.delete(args.case_id)
+            print(f"deleted {args.case_id}")
         elif args.cmd == "show":
             _print_case(loop.load(args.case_id))
         elif args.cmd == "demo":
             cmd_demo(args)
     except (loop.CaseError, loop.NotFound, slicer.SlicerError, llm.LLMUnavailable, ValueError) as exc:
-        print(f"errore: {exc}", file=sys.stderr)
+        print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
 
 

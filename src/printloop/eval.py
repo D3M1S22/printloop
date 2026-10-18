@@ -1,11 +1,11 @@
-"""Valutazione sul test set con difetti indotti (docs/printloop/02_DATA_STRATEGY.md §5).
+"""Evaluation on the test set with induced defects (docs/printloop/02_DATA_STRATEGY.md §5).
 
-- `patches`: data la diagnosi corretta, la prima patch tocca il parametro indotto nella direzione giusta
-  e supera il pre-flight? Il controllo negativo C0 non deve produrre patch. Gira offline.
-- `diagnosis`: Gemma sulle foto reali di ogni caso (data/testset/<caso>/photos/*.jpg) contro il difetto
-  indotto: top-1, top-2, severità, latenza. Richiede l'endpoint LLM e le foto delle stampe.
+- `patches`: given the correct diagnosis, does the first patch touch the induced parameter in the right
+  direction and pass the pre-flight? The negative control C0 must produce no patch. Runs offline.
+- `diagnosis`: Gemma on the real photos of each case (data/testset/<case>/photos/*.jpg) against the induced
+  defect: top-1, top-2, severity, latency. Needs the LLM endpoint and photos of the prints.
 
-Uso: `uv run python -m printloop.eval patches|diagnosis [--testset DIR] [--mode rules|llm]`
+Usage: `uv run python -m printloop.eval patches|diagnosis [--testset DIR] [--mode rules|llm]`
 """
 from __future__ import annotations
 
@@ -51,11 +51,11 @@ def eval_patches(testset_dir: Path, mode: str = "rules") -> dict:
                 and (c.after - c.before > 0) == (entry["expected_patch"][c.key] == "up") for c in changes)
         row["seconds"] = round(time.perf_counter() - t0, 2)
         rows.append(row)
-        print(f"{row['case_id']:<26} {'OK ' if row['correct'] else 'NO '} proposto {row['proposed']} "
-              f"atteso {row['expected']} pre-flight {row['preflight_ok']}")
+        print(f"{row['case_id']:<26} {'OK ' if row['correct'] else 'NO '} proposed {row['proposed']} "
+              f"expected {row['expected']} pre-flight {row['preflight_ok']}")
     summary = {"mode": mode, "cases": len(rows), "correct": sum(r["correct"] for r in rows),
                "preflight_ok": sum(r["preflight_ok"] for r in rows if r["expected"]), "rows": rows}
-    print(f"\ncausa corretta: {summary['correct']}/{summary['cases']}")
+    print(f"\ncorrect cause: {summary['correct']}/{summary['cases']}")
     return summary
 
 
@@ -72,11 +72,11 @@ def eval_diagnosis(testset_dir: Path) -> dict:
         rows.append({"case_id": entry["case_id"], "truth": truth, "primary": diag.primary, "ranked": ranked,
                      "top1": diag.primary == truth, "top2": truth in ([diag.primary] + ranked)[:2],
                      "severity": diag.severity, "confidence": diag.confidence, "latency_ms": diag.latency_ms})
-        print(f"{entry['case_id']:<26} verità {truth:<16} modello {diag.primary:<16} "
+        print(f"{entry['case_id']:<26} truth {truth:<16} model {diag.primary:<16} "
               f"conf {diag.confidence:.2f} {diag.latency_ms} ms")
     n = len(rows)
     summary = {"cases": n, "top1": sum(r["top1"] for r in rows), "top2": sum(r["top2"] for r in rows), "rows": rows}
-    print(f"\ntop-1 {summary['top1']}/{n} · top-2 {summary['top2']}/{n}" if n else "nessuna foto nel test set")
+    print(f"\ntop-1 {summary['top1']}/{n} · top-2 {summary['top2']}/{n}" if n else "no photos in the test set")
     return summary
 
 
@@ -91,7 +91,7 @@ def main() -> None:
     RESULTS_DIR.mkdir(exist_ok=True)
     name = f"eval_{args.what}" + (f"_{args.mode}" if args.what == "patches" else "") + ".json"
     (RESULTS_DIR / name).write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"risultati: {RESULTS_DIR / name}")
+    print(f"results: {RESULTS_DIR / name}")
 
 
 if __name__ == "__main__":

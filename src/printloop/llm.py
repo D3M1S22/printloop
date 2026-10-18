@@ -1,8 +1,8 @@
-"""Client LLM OpenAI-compatibile: vLLM su AMD MI300X (Gemma 4) o, in sviluppo, llama-server locale.
+"""OpenAI-compatible LLM client: vLLM on AMD MI300X (Gemma 4) or, during development, a local llama-server.
 
-Ripreso dal client di MarginSwarm, con le immagini come data URL. Registra la telemetria (latenza,
-token) usata da /api/health e dal benchmark. Se nessun endpoint è configurato `available()` è False e la
-pipeline usa diagnosi dell'operatore e proposta a regole, dichiarandolo in UI.
+Adapted from the MarginSwarm client, with images as data URLs. Records the telemetry (latency, tokens)
+used by /api/health and by the benchmark. With no endpoint configured `available()` is False and the
+pipeline uses operator diagnosis and rule-based proposals, and says so in the UI.
 """
 from __future__ import annotations
 
@@ -64,7 +64,7 @@ def describe() -> dict:
 
 
 def image_part(path: str | Path, max_px: int | None = None) -> dict:
-    """Foto ridimensionata (lato lungo ≤ max_px), orientata secondo EXIF, come data URL JPEG."""
+    """Photo resized (long side ≤ max_px), oriented by EXIF, as a JPEG data URL."""
     max_px = max_px or LOOP.max_image_px
     with Image.open(path) as img:
         img = ImageOps.exif_transpose(img).convert("RGB")
@@ -76,22 +76,22 @@ def image_part(path: str | Path, max_px: int | None = None) -> dict:
 
 
 def _json_from_text(text: str) -> Any:
-    """Estrae il primo oggetto JSON da una risposta (per endpoint senza structured output)."""
+    """Extracts the first JSON object from a reply (for endpoints without structured output)."""
     text = re.sub(r"<think>.*?</think>", "", text or "", flags=re.S).strip()
     match = re.search(r"\{.*\}", text, flags=re.S)
     if not match:
-        raise ValueError(f"nessun JSON nella risposta: {text[:200]}")
+        raise ValueError(f"no JSON in the reply: {text[:200]}")
     return json.loads(match.group(0))
 
 
 def chat_json(messages: list[dict], schema: dict, name: str = "output", temperature: float = 0.0,
               max_tokens: int | None = None) -> tuple[dict, float]:
-    """Chiamata con output vincolato a JSON schema. Restituisce (oggetto, latenza ms).
+    """Call with output constrained to a JSON schema. Returns (object, latency ms).
 
-    Se l'endpoint rifiuta `response_format` (es. llama-server vecchi) ritenta senza e cerca il JSON nel testo.
+    If the endpoint rejects `response_format` (e.g. old llama-server) it retries without it and looks for the JSON in the text.
     """
     if not LLM.enabled:
-        raise LLMUnavailable("nessun endpoint LLM configurato (LLM_BASE_URL)")
+        raise LLMUnavailable("no LLM endpoint configured (LLM_BASE_URL)")
     client = OpenAI(base_url=LLM.base_url, api_key=LLM.api_key or "EMPTY", timeout=LLM.timeout_s, max_retries=1)
     last: Exception | None = None
     for use_schema in (True, False):
@@ -104,9 +104,9 @@ def chat_json(messages: list[dict], schema: dict, name: str = "output", temperat
             latency = (time.perf_counter() - t0) * 1000
             TELEMETRY.record(latency, resp.usage)
             if resp.choices[0].finish_reason == "length":
-                raise ValueError(f"risposta troncata a {max_tokens or LLM.max_tokens} token: aumentare LLM_MAX_TOKENS")
+                raise ValueError(f"reply truncated at {max_tokens or LLM.max_tokens} tokens: increase LLM_MAX_TOKENS")
             return _json_from_text(resp.choices[0].message.content), latency
-        except Exception as exc:  # noqa: BLE001 - si prova la variante successiva
+        except Exception as exc:  # noqa: BLE001 - try the next variant
             TELEMETRY.errors += 1
             last = exc
-    raise LLMUnavailable(f"chiamata LLM fallita: {last}")
+    raise LLMUnavailable(f"LLM call failed: {last}")

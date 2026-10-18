@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Avvia Gemma 4 multimodale su vLLM-ROCm (AMD MI300X). Eseguire nel container `rocm` del droplet
-# (immagine "vLLM Quick Start" di AMD Developer Cloud, oppure vllm/vllm-openai-rocm:latest).
+# Starts multimodal Gemma 4 on vLLM-ROCm (AMD MI300X). Run inside the droplet's `rocm` container
+# (AMD Developer Cloud "vLLM Quick Start" image, or vllm/vllm-openai-rocm:latest).
 #
-# - fino a 4 immagini per richiesta, niente audio (le varianti 26B-A4B e 31B non lo supportano);
-# - --api-key sempre: i port mapping Docker scavalcano UFW e l'endpoint è pubblico;
-# - PrintLoop non ospita altri carichi sulla GPU, quindi vLLM può usare quasi tutta la VRAM.
+# - up to 4 images per request, no audio (the 26B-A4B and 31B variants do not support it);
+# - always --api-key: Docker port mappings bypass UFW and the endpoint is public;
+# - PrintLoop runs no other workloads on the GPU, so vLLM can use almost all the VRAM.
 #
-# Poi in .env: LLM_BASE_URL=http://<DROPLET_IP>:8000/v1  LLM_API_KEY=<VLLM_API_KEY>  LLM_MODEL=$MODEL
+# Then in .env: LLM_BASE_URL=http://<DROPLET_IP>:8000/v1  LLM_API_KEY=<VLLM_API_KEY>  LLM_MODEL=$MODEL
 set -euo pipefail
-: "${VLLM_API_KEY:?impostare VLLM_API_KEY (segreto lungo)}"
+: "${VLLM_API_KEY:?set VLLM_API_KEY (a long secret)}"
 MODEL="${LLM_MODEL:-google/gemma-4-26B-A4B-it}"
-# Budget di token visivi per immagine (70/140/280 default/560/1120): i difetti fini potrebbero chiedere 560+.
-# Opzionale: MM_KWARGS='{"<parametro della recipe>": 560}'. Il nome del parametro va letto dalla recipe Gemma 4.
+# Visual token budget per image (70/140/280 default/560/1120): fine defects may need 560+.
+# Optional: MM_KWARGS='{"<recipe parameter>": 560}'. Read the parameter name from the Gemma 4 recipe.
 EXTRA=()
 [[ -n "${MM_KWARGS:-}" ]] && EXTRA+=(--mm-processor-kwargs "$MM_KWARGS")
 vllm serve "$MODEL" \
@@ -23,4 +23,4 @@ vllm serve "$MODEL" \
   --async-scheduling \
   "${EXTRA[@]}" \
   > /tmp/vllm.log 2>&1 &
-echo "vLLM in avvio, log: tail -f /tmp/vllm.log (attendere 'Application startup complete')"
+echo "vLLM starting, log: tail -f /tmp/vllm.log (wait for 'Application startup complete')"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Wrapper per OrcaSlicer via Flatpak per PrintLoop.
-# Assicura i permessi per /tmp e home, e inietta --allow-newer-file per compatibilità con i 3MF BambuStudio.
+# OrcaSlicer (Flatpak) wrapper for PrintLoop.
+# Grants access to /tmp and home, and injects --allow-newer-file for compatibility with BambuStudio 3MFs.
 set -euo pipefail
 
 ARGS=()

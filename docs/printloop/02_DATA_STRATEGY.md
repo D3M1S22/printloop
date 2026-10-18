@@ -1,74 +1,74 @@
-# 02. Dati: cosa abbiamo, cosa produciamo, come valutiamo
+# 02. Data: what we have, what we produce, how we evaluate
 
-## 1. Inventario
+## 1. Inventory
 
-| Risorsa | Stato | Note |
+| Resource | Status | Notes |
 | :-- | :-- | :-- |
-| Bambu Lab P1S | ✅ del team | Firmware da controllare (Developer Mode da 01.08.02.00). **Dove sarà sabato e domenica?** Vedi [04](04_PLAN_DECISIONS_RISKS.md) §5 |
-| OrcaSlicer | ✅ in uso | Versione da fissare e annotare in ogni caso |
-| Casi storici risolti con Antigravity (bridge che cedono, sovra-estrusione) | ❓ da recuperare | Servono preset prima/dopo, foto se esistono, descrizione del problema. Primo test qualitativo: Gemma deve arrivare alla stessa patch |
-| Filamento | ❓ | Un solo materiale (es. PLA) per tutto il test set: riduce le variabili |
-| GPU locale Radeon RX 6700 XT (12 GB) | ✅ | ROCm su RDNA2 non è ufficialmente supportato (di solito serve `HSA_OVERRIDE_GFX_VERSION`) ⚠️. Al massimo per sviluppo con un modello piccolo, non per la demo |
-| Dataset pubblici | ✅ CAXTON (CC BY 4.0), ❓ Roboflow, AGH | Vedi [01](01_RESEARCH_STACK.md) §6. Nessuno ha foto del pezzo + preset + G-code |
+| Bambu Lab P1S | ✅ the team's | Firmware to check (Developer Mode from 01.08.02.00). **Where will it be on Saturday and Sunday?** See [04](04_PLAN_DECISIONS_RISKS.md) §5 |
+| OrcaSlicer | ✅ in use | Version to pin and record in every case |
+| Past cases solved with Antigravity (sagging bridges, over-extrusion) | ❓ to retrieve | Needs presets before/after, photos if they exist, a description of the problem. First qualitative test: Gemma should reach the same patch |
+| Filament | ❓ | A single material (e.g. PLA) for the whole test set: fewer variables |
+| Local Radeon RX 6700 XT GPU (12 GB) | ✅ | ROCm on RDNA2 is not officially supported (usually `HSA_OVERRIDE_GFX_VERSION` is needed) ⚠️. At most for development with a small model, not for the demo |
+| Public datasets | ✅ CAXTON (CC BY 4.0), ❓ Roboflow, AGH | See [01](01_RESEARCH_STACK.md) §6. None has photos of the part + preset + G-code |
 
-**Conclusione:** il test set che conta lo produciamo noi, con difetti **indotti da un singolo parametro noto**. È l'unico modo per avere una ground truth della *causa*, non solo del sintomo.
+**Conclusion:** we produce the test set that matters ourselves, with defects **induced by a single known parameter**. It is the only way to get a ground truth of the *cause*, not just of the symptom.
 
 ---
 
-## 2. Tassonomia chiusa dei difetti
+## 2. Closed defect taxonomy
 
-| Classe | Codice | Rilevabile da camera P1S (Modo 1)? |
+| Class | Code | Detectable by the P1S camera (Mode 1)? |
 | :-- | :-- | :-: |
-| Sotto-estrusione | `under_extrusion` | no |
-| Sovra-estrusione | `over_extrusion` | no |
+| Under-extrusion | `under_extrusion` | no |
+| Over-extrusion | `over_extrusion` | no |
 | Stringing | `stringing` | no |
-| Bridge che cedono | `bridge_sagging` | forse, se grave |
-| Overhang arricciati | `overhang_curling` | forse |
-| Warping / distacco | `warping` | sì |
-| Problemi di primo layer | `first_layer` | no |
-| Layer shift | `layer_shift` | sì |
-| Spaghetti / stampa persa | `spaghetti` | sì |
-| Nessun difetto | `none` | — |
-| Fuori tassonomia | `other` | — |
+| Sagging bridges | `bridge_sagging` | maybe, if severe |
+| Curling overhangs | `overhang_curling` | maybe |
+| Warping / detachment | `warping` | yes |
+| First layer problems | `first_layer` | no |
+| Layer shift | `layer_shift` | yes |
+| Spaghetti / failed print | `spaghetti` | yes |
+| No defect | `none` | — |
+| Outside the taxonomy | `other` | — |
 
-`other` e `none` sono obbligatori: senza, il modello forza ogni foto in una classe.
+`other` and `none` are mandatory: without them, the model forces every photo into a class. (`none` remains a model output; in the UI the operator closes a good reprint with "Reprint OK" instead of picking "No defect".)
 
 ---
 
-## 3. Matrice dei difetti indotti (test set)
+## 3. Induced-defect matrix (test set)
 
-> **Implementata** in `src/printloop/testset.py` sul coupon `examples/coupon/` (piastra + due pilastri + ponte da 44 mm, ~12 min): `uv run printloop testset` genera per ogni caso il progetto, il 3MF già slicato da stampare e il manifest. I casi effettivi (C0–C7, valori verificati sul G-code) sono in [06_IMPLEMENTATION_STATUS.md](06_IMPLEMENTATION_STATUS.md) §3; la tabella qui sotto è il piano originale.
+> **Implemented** in `src/printloop/testset.py` on the `examples/coupon/` coupon (plate + two pillars + 44 mm bridge, ~12 min): `uv run printloop testset` generates, for each case, the project, the sliced 3MF to print and the manifest. The actual cases (C0–C7, values verified on the G-code) are in [06_IMPLEMENTATION_STATUS.md](06_IMPLEMENTATION_STATUS.md) §3; the table below is the original plan.
 
-Pezzi di test brevi (5–15 min ciascuno), tutti con lo stesso filamento e lo stesso preset di sistema come **baseline**. Ogni caso cambia **un solo** parametro rispetto alla baseline. I nomi delle chiavi sono quelli di OrcaSlicer per macchine Bambu e **vanno confermati** sul JSON di `--export-settings` (spike S2). I valori esatti finiscono nel manifest di ogni caso.
+Short test parts (5–15 min each), all with the same filament and the same system preset as the **baseline**. Each case changes **a single** parameter against the baseline. Key names are OrcaSlicer's for Bambu machines and **must be confirmed** on the `--export-settings` JSON (spike S2). Exact values go into each case's manifest.
 
-| Caso | Pezzo | Difetto atteso | Parametro indotto (chiave Orca ⚠️) | Variazione | Patch attesa |
+| Case | Part | Expected defect | Induced parameter (Orca key ⚠️) | Change | Expected patch |
 | :-- | :-- | :-- | :-- | :-- | :-- |
-| C0 | tutti | `none` (controllo negativo) | — | baseline | **nessuna patch** |
-| C1 | bridge test (ponti 10–50 mm) | `bridge_sagging` | `bridge_speed` | ×2,5 | `bridge_speed` ↓ |
-| C2 | bridge test | `bridge_sagging` | `overhang_fan_speed` | 100% → 30% | ventola ↑ |
-| C3 | cubo 20 mm | `over_extrusion` | `filament_flow_ratio` | +15% | flow ↓ |
-| C4 | cubo 20 mm | `under_extrusion` | `filament_flow_ratio` | −20% | flow ↑ |
-| C5 | due torri | `stringing` | `nozzle_temperature` | +25 °C | temperatura ↓ (o retrazione ↑) |
-| C6 | due torri | `stringing` | `retraction_length` | 0,8 → 0,2 mm | retrazione ↑ |
-| C7 | overhang test 30–70° | `overhang_curling` | `fan_max_speed` / `overhang_fan_speed` | → 20% | ventola ↑ |
-| C8 (opz.) | lastra 80×80 mm | `warping` | piano freddo + brim off | −20 °C | piano ↑, brim on |
+| C0 | all | `none` (negative control) | — | baseline | **no patch** |
+| C1 | bridge test (10–50 mm bridges) | `bridge_sagging` | `bridge_speed` | ×2.5 | `bridge_speed` ↓ |
+| C2 | bridge test | `bridge_sagging` | `overhang_fan_speed` | 100% → 30% | fan ↑ |
+| C3 | 20 mm cube | `over_extrusion` | `filament_flow_ratio` | +15% | flow ↓ |
+| C4 | 20 mm cube | `under_extrusion` | `filament_flow_ratio` | −20% | flow ↑ |
+| C5 | two towers | `stringing` | `nozzle_temperature` | +25 °C | temperature ↓ (or retraction ↑) |
+| C6 | two towers | `stringing` | `retraction_length` | 0.8 → 0.2 mm | retraction ↑ |
+| C7 | 30–70° overhang test | `overhang_curling` | `fan_max_speed` / `overhang_fan_speed` | → 20% | fan ↑ |
+| C8 (opt.) | 80×80 mm slab | `warping` | cold bed + brim off | −20 °C | bed ↑, brim on |
 
-- Stampe baseline + 8 casi indotti: **~2 h di macchina**. Ristampe con patch per chiudere il loop: altre **~1,5 h**.
-- C1/C2 e C5/C6 sono coppie con **stesso sintomo e cause diverse**: misurano se il modello distingue la causa o tira a indovinare. Se non ci riesce, la risposta onesta è una patch al parametro più probabile e, alla ristampa, il passaggio al secondo candidato. È il motivo per cui il loop esiste.
+- Baseline prints + 8 induced cases: **~2 h of machine time**. Patched reprints to close the loop: another **~1.5 h**.
+- C1/C2 and C5/C6 are pairs with **the same symptom and different causes**: they measure whether the model tells the cause apart or guesses. If it cannot, the honest answer is a patch to the most likely parameter and, on the reprint, a move to the second candidate. That is why the loop exists.
 
-### 3.1 Protocollo foto
-- 4 foto per pezzo: frontale, laterale a 45°, dall'alto, macro del difetto.
-- Stesso telefono, sfondo neutro, luce diffusa, un riferimento di scala (righello) nell'inquadratura.
-- Foto prese **prima** di guardare il manifest da chi le etichetta (etichettatura cieca, §4).
+### 3.1 Photo protocol
+- 4 photos per part: front, side at 45°, top, macro of the defect.
+- Same phone, neutral background, diffuse light, a scale reference (ruler) in the frame.
+- Photos taken **before** the labeller looks at the manifest (blind labelling, §4).
 
-### 3.2 Struttura di un caso (non versionata, sotto `data/`)
+### 3.2 Layout of a case (not versioned, under `data/`)
 
 ```text
 data/testset/C3_over_extrusion/
-├── manifest.json            # generato da `printloop testset`
-├── project.3mf              # progetto con il parametro indotto
-├── slice/sliced.3mf         # da stampare
-└── photos/                  # da aggiungere dopo la stampa: front.jpg, side45.jpg, top.jpg, macro.jpg
+├── manifest.json            # generated by `printloop testset`
+├── project.3mf              # project with the induced parameter
+├── slice/sliced.3mf         # to print
+└── photos/                  # to add after printing: front.jpg, side45.jpg, top.jpg, macro.jpg
 ```
 
 ```json
@@ -87,49 +87,49 @@ data/testset/C3_over_extrusion/
 }
 ```
 
-I valori qui sopra sono un esempio di formato, non dati misurati.
+The values above are a format example, not measured data.
 
 ---
 
-## 4. Rubrica di severità (stessa prima e dopo)
+## 4. Severity rubric (the same before and after)
 
-| Severità | Significato |
+| Severity | Meaning |
 | :-: | :-- |
-| 0 | assente |
-| 1 | lieve, solo estetico: pezzo accettabile |
-| 2 | evidente, il pezzo funziona ma va rifatto per un cliente |
-| 3 | grave, pezzo da scartare |
+| 0 | absent |
+| 1 | minor, cosmetic only: part acceptable |
+| 2 | clearly visible, the part works but would be reprinted for a customer |
+| 3 | severe, the part must be discarded |
 
-- Due membri del team etichettano **indipendentemente**, senza vedere il manifest; si riporta l'accordo.
-- **Successo** di un loop = severità ≤ 1 sul difetto indotto, senza nuovi difetti ≥ 2.
-- Il modello produce la stessa rubrica: confrontiamo la sua severità con quella umana.
+- Two team members label **independently**, without seeing the manifest; we report the agreement.
+- **Success** of a loop = severity ≤ 1 on the induced defect, with no new defects ≥ 2.
+- The model produces the same rubric: we compare its severity with the human one.
 
 ---
 
-## 5. Metriche
+## 5. Metrics
 
-| Metrica | Definizione | Fonte |
+| Metric | Definition | Source |
 | :-- | :-- | :-- |
-| Accuratezza di diagnosi | top-1 e top-2 sulla classe del difetto indotto | casi C0–C8 |
-| Correttezza della causa | la patch tocca la chiave indotta, nella direzione giusta | manifest |
-| Controllo negativo | C0 → nessuna patch | C0 |
-| Pre-flight | la modifica si vede nel G-code nelle feature attese, nessun limite superato | parser |
-| Iterazioni al successo | cicli fino a severità ≤ 1 (massimo K = 3) | ristampe |
-| Spreco | grammi e minuti per iterazione; in Modo 1, grammi risparmiati fermando prima | manifest + slicer |
-| Confronto modelli | 26B-A4B contro 31B (e fallback Token Factory): accuratezza, latenza p50/p95, token visivi 280 contro 560/1120 | benchmark |
-| Casi storici | patch di Gemma contro patch trovata con Antigravity (qualitativo) | §1 |
+| Diagnosis accuracy | top-1 and top-2 on the class of the induced defect | cases C0–C8 |
+| Correct cause | the patch touches the induced key, in the right direction | manifest |
+| Negative control | C0 → no patch | C0 |
+| Pre-flight | the change shows in the G-code on the expected features, no limit exceeded | parser |
+| Iterations to success | cycles until severity ≤ 1 (at most K = 3) | reprints |
+| Waste | grams and minutes per iteration; in Mode 1, grams saved by stopping early | manifest + slicer |
+| Model comparison | 26B-A4B vs 31B (and the Token Factory fallback): accuracy, p50/p95 latency, visual tokens 280 vs 560/1120 | benchmark |
+| Past cases | Gemma's patch vs the patch found with Antigravity (qualitative) | §1 |
 
-Con ~10 casi i numeri sono piccoli: li presentiamo come conteggi (es. "7/9"), non come percentuali con decimali.
+With ~10 cases the numbers are small: we present them as counts (e.g. "7/9"), not as percentages with decimals.
 
 ---
 
-## 6. CAXTON (stretch, benchmark ROCm)
+## 6. CAXTON (stretch, ROCm benchmark)
 
-- Uso: fine-tuning di un classificatore leggero (es. ResNet-18 a 4 teste: flow, velocità, Z offset, temperatura × basso/ok/alto) su un sottoinsieme, con PyTorch ROCm su MI300X. Misuriamo il tempo per epoca contro CPU. È un carico GPU reale e diverso dall'inferenza.
-- Limite da dichiarare: le immagini CAXTON sono riprese accanto all'ugello su stampanti Marlin, non sono foto di pezzi finiti. Il classificatore non sostituisce Gemma nel Modo 2: serve come benchmark e, al massimo, come secondo parere sul flow.
-- Prima di pianificarlo: verificare quanto pesano gli archivi immagini (il repository elenca solo CSV per ~640 MB). ❓
+- Use: fine-tuning a light classifier (e.g. a 4-head ResNet-18: flow, speed, Z offset, temperature × low/ok/high) on a subset, with PyTorch ROCm on the MI300X. We measure time per epoch against CPU. It is a real GPU workload, different from inference.
+- Limit to declare: CAXTON images are taken next to the nozzle on Marlin printers, they are not photos of finished parts. The classifier does not replace Gemma in Mode 2: it is a benchmark and, at most, a second opinion on flow.
+- Before planning it: check how large the image archives are (the repository lists only CSVs of ~640 MB). ❓
 
-## 7. Licenze
+## 7. Licences
 
-- Le nostre foto, i preset e i G-code si possono pubblicare (sono nostri). Per la consegna basta un sottoinsieme piccolo, il resto resta in `data/` (gitignored).
-- CAXTON: CC BY 4.0, citare Brion & Pattinson, *Nature Communications* 2022. Non ridistribuiamo le immagini: script di download.
+- Our photos, presets and G-codes can be published (they are ours). A small subset is enough for the submission, the rest stays in `data/` (gitignored).
+- CAXTON: CC BY 4.0, cite Brion & Pattinson, *Nature Communications* 2022. We do not redistribute the images: download script.

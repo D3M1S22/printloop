@@ -1,11 +1,11 @@
-"""Coupon di prova e test set con difetti indotti (docs/printloop/02_DATA_STRATEGY.md §3).
+"""Test coupon and test set with induced defects (docs/printloop/02_DATA_STRATEGY.md §3).
 
-Il coupon è un nostro modello (parallelepipedi): piastra 60×20×2 mm, due pilastri 8×8 mm alti 13 mm e un
-ponte di 44 mm in cima. In ~12 minuti mostra bridge, stringing tra i pilastri (travel), pareti e primo
-layer. Il progetto si costruisce dai preset di sistema BambuStudio per P1S 0.4 + Bambu PLA Basic.
+The coupon is our own model (boxes): a 60×20×2 mm plate, two 8×8 mm pillars 13 mm tall and a 44 mm
+bridge on top. In ~12 minutes it shows bridges, stringing between the pillars (travel), walls and the
+first layer. The project is built from the BambuStudio system presets for P1S 0.4 + Bambu PLA Basic.
 
-Ogni caso del test set cambia rispetto alla baseline solo i parametri dichiarati nel manifest, che riporta
-anche la patch attesa: è la ground truth della causa.
+Each test case changes only the parameters declared in its manifest against the baseline; the manifest
+also states the expected patch: it is the ground truth of the cause.
 """
 from __future__ import annotations
 
@@ -24,25 +24,25 @@ MACHINE = "Bambu Lab P1S 0.4 nozzle"
 PROCESS = "0.20mm Standard @BBL X1C"
 FILAMENT = "Bambu PLA Basic @BBL P1S 0.4 nozzle"
 
-# id, difetto atteso, parametri indotti (chiavi reali), patch attesa (chiave KB, direzione), nota
+# id, expected defect, induced parameters (real keys), expected patch (KB key, direction), note
 CASES: list[dict] = [
-    {"id": "C0_baseline", "defect": "none", "induced": {}, "expected": {}, "note": "controllo negativo"},
+    {"id": "C0_baseline", "defect": "none", "induced": {}, "expected": {}, "note": "negative control"},
     {"id": "C1_bridge_speed", "defect": "bridge_sagging", "induced": {"bridge_speed": 100},
-     "expected": {"bridge_speed": "down"}, "note": "ponti a velocità doppia"},
+     "expected": {"bridge_speed": "down"}, "note": "bridges at double speed"},
     {"id": "C2_bridge_cooling", "defect": "bridge_sagging",
      "induced": {"overhang_fan_speed": 20, "fan_max_speed": 30},
      "expected": {"overhang_fan_speed": "up"},
-     "note": "ventola bassa su bridge e layer brevi; con fan_max al 100% la ventola dei bridge non cambierebbe"},
+     "note": "low fan on bridges and short layers; with fan_max at 100% the bridge fan would not change"},
     {"id": "C3_over_extrusion", "defect": "over_extrusion", "induced": {"filament_flow_ratio": 1.13},
      "expected": {"filament_flow_ratio": "down"}, "note": "flow +15%"},
     {"id": "C4_under_extrusion", "defect": "under_extrusion", "induced": {"filament_flow_ratio": 0.8},
      "expected": {"filament_flow_ratio": "up"}, "note": "flow -18%"},
     {"id": "C5_stringing_temp", "defect": "stringing", "induced": {"nozzle_temperature": 240},
-     "expected": {"nozzle_temperature": "down"}, "note": "ugello +20 °C (limite alto del range PLA)"},
+     "expected": {"nozzle_temperature": "down"}, "note": "nozzle +20 °C (top of the PLA range)"},
     {"id": "C6_stringing_retraction", "defect": "stringing", "induced": {"retraction_length": 0.1},
-     "expected": {"retraction_length": "up"}, "note": "retrazione quasi nulla"},
+     "expected": {"retraction_length": "up"}, "note": "almost no retraction"},
     {"id": "C7_first_layer_speed", "defect": "first_layer", "induced": {"initial_layer_speed": 100},
-     "expected": {"initial_layer_speed": "down"}, "note": "primo layer a velocità doppia"},
+     "expected": {"initial_layer_speed": "down"}, "note": "first layer at double speed"},
 ]
 
 
@@ -73,12 +73,12 @@ def write_coupon_stl(path: Path) -> Path:
 
 
 def _builder_bin() -> str | None:
-    """Il coupon si costruisce con BambuStudio (preset di sistema in /opt/BambuStudio), se presente."""
+    """The coupon is built with BambuStudio (system presets in /opt/BambuStudio), when available."""
     return slicer_bin("bambu") or slicer_bin()
 
 
 def profiles_dir() -> Path:
-    """Cartella dei preset di sistema BBL dello slicer installato."""
+    """BBL system preset folder of the installed slicer."""
     binary = _builder_bin()
     candidates = [
         Path("/var/lib/flatpak/app/com.orcaslicer.OrcaSlicer/current/active/files/share/OrcaSlicer/profiles/BBL"),
@@ -93,14 +93,14 @@ def profiles_dir() -> Path:
     for path in candidates:
         if (path / "machine" / f"{MACHINE}.json").exists():
             return path
-    raise SlicerError("preset di sistema BBL non trovati: impostare il percorso in testset.profiles_dir()")
+    raise SlicerError("BBL system presets not found: set the path in testset.profiles_dir()")
 
 
 def build_coupon(dst: Path = COUPON_3MF) -> Path:
-    """Costruisce il progetto 3MF del coupon dai preset di sistema (senza G-code dentro)."""
+    """Builds the coupon 3MF project from the system presets (without G-code inside)."""
     binary = _builder_bin()
     if not binary:
-        raise SlicerError("slicer non trovato")
+        raise SlicerError("slicer not found")
     prof = profiles_dir()
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
@@ -112,9 +112,9 @@ def build_coupon(dst: Path = COUPON_3MF) -> Path:
                "--outputdir", str(tmp)]
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
         if proc.returncode != 0 or not (tmp / "coupon.3mf").exists():
-            raise SlicerError(f"costruzione del coupon fallita (exit {proc.returncode})")
+            raise SlicerError(f"coupon build failed (exit {proc.returncode})")
         settings = project.read_settings(tmp / "coupon.3mf")
-        # I preset caricati da CLI non ereditano la densità: la fissiamo per stimare i grammi.
+        # Presets loaded from the CLI do not inherit the density: set it to estimate grams.
         settings = project.apply_changes(settings, {"filament_density": 1.26})
         project.write_patched(tmp / "coupon.3mf", dst, settings)
     return dst
@@ -122,16 +122,16 @@ def build_coupon(dst: Path = COUPON_3MF) -> Path:
 
 def build_testset(outdir: Path, base: Path = COUPON_3MF, slice_cases: bool = True,
                   bed_type: str | None = None) -> list[dict]:
-    """Scrive un progetto per caso (più il 3MF già slicato da stampare) e il manifest con la ground truth.
+    """Writes one project per case (plus the sliced 3MF to print) and the manifest with the ground truth.
 
-    `bed_type` (es. "Textured PEI Plate") imposta il piatto su cui si stamperà davvero.
+    `bed_type` (e.g. "Textured PEI Plate") sets the plate that will actually be used.
     """
     if not base.exists():
         build_coupon(base)
     settings = project.read_settings(base)
     if bed_type:
         if bed_type not in project.BED_KEYS:
-            raise ValueError(f"piatto sconosciuto: {bed_type} (ammessi: {', '.join(project.BED_KEYS)})")
+            raise ValueError(f"unknown plate: {bed_type} (allowed: {', '.join(project.BED_KEYS)})")
         settings = project.apply_changes(settings, {"curr_bed_type": bed_type})
     manifest = []
     for case in CASES:

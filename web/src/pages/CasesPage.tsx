@@ -1,89 +1,120 @@
 import { Link, useNavigate } from 'react-router'
 import type { CaseState } from '../api/types'
-import { useCases, useTaxonomy } from '../api/hooks'
+import { useCases, useConfirmSuccess, useDeleteCase, useTaxonomy } from '../api/hooks'
 import { NewCaseForm } from '../components/NewCaseForm'
-import { Card, ErrorNotice, Spinner, StateBadge } from '../components/ui'
+import { Button, Card, ConfirmButton, ErrorNotice, Spinner, StateBadge } from '../components/ui'
 import { OUTCOME_LABEL, dateTime } from '../lib/format'
 
-/** Prossimo passo per l'operatore, mostrato come azione esplicita nella riga. */
+/** Next step for the operator, shown as an explicit action in the row. */
 const NEXT_ACTION: Record<CaseState, string> = {
-  awaiting_photos: 'Carica le foto',
-  ready: 'Analizza',
-  needs_info: 'Completa la diagnosi',
-  diagnosed: 'Proponi la patch',
-  awaiting_approval: 'Approva la patch',
-  escalated: 'Apri',
-  done: 'Apri',
+  awaiting_photos: 'Upload photos',
+  ready: 'Analyse',
+  needs_info: 'Complete the diagnosis',
+  diagnosed: 'Propose the patch',
+  awaiting_approval: 'Approve the patch',
+  escalated: 'Open',
+  done: 'Open',
 }
 
 function CaseTable() {
   const navigate = useNavigate()
   const { data, isLoading, error } = useCases()
   const { data: taxonomy } = useTaxonomy()
+  const confirm = useConfirmSuccess()
+  const remove = useDeleteCase()
   const label = (id: string | null) => (id ? (taxonomy?.defects.find((d) => d.id === id)?.label ?? id) : '—')
 
-  if (isLoading) return <Spinner label="Caricamento dei casi…" />
-  if (error) return <ErrorNotice error={error} title="Casi non disponibili" />
+  if (isLoading) return <Spinner label="Loading the cases…" />
+  if (error) return <ErrorNotice error={error} title="Cases unavailable" />
   if (!data || data.length === 0) {
-    return <p className="empty">Nessun caso. Carica il progetto 3MF di una stampa venuta male per iniziare.</p>
+    return <p className="empty">No cases yet. Upload the 3MF project of a print that came out wrong to start.</p>
   }
+  // No wrapping grid here: .table-wrap must stay a direct child of the card body to scroll on small screens.
   return (
-    <div className="table-wrap">
-      <table className="table">
-        <thead>
-          <tr>
-            <th scope="col">Caso</th>
-            <th scope="col">Stato</th>
-            <th scope="col">Difetto</th>
-            <th scope="col">
-              <span className="sr-only">Azione</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((c) => (
-            // Tutta la riga è cliccabile; il nome resta un link vero per tastiera e screen reader.
-            <tr
-              key={c.id}
-              className="table__row--link"
-              onClick={(e) => {
-                if ((e.target as HTMLElement).closest('a')) return
-                if (window.getSelection()?.toString()) return
-                navigate(`/cases/${c.id}`)
-              }}
-            >
-              <td>
-                <Link to={`/cases/${c.id}`}>{c.name}</Link>
-                <div className="muted">
-                  {c.material} · {c.printer}
-                </div>
-              </td>
-              <td>
-                <StateBadge state={c.state} />
-                <div className="muted">
-                  {c.outcome ? `${OUTCOME_LABEL[c.outcome]} · ` : ''}
-                  {dateTime(c.updated_at)}
-                </div>
-              </td>
-              <td>
-                {label(c.defect)}
-                <div className="muted">iterazione {c.iteration}</div>
-              </td>
-              <td className="table__action">
-                <Link
-                  to={`/cases/${c.id}`}
-                  className={c.state === 'escalated' || c.state === 'done' ? 'btn btn--sm' : 'btn btn--sm btn--primary'}
-                  tabIndex={-1}
-                  aria-hidden="true"
-                >
-                  {NEXT_ACTION[c.state]} →
-                </Link>
-              </td>
+    <>
+      <ErrorNotice error={confirm.error} title="Reprint not confirmed" />
+      <ErrorNotice error={remove.error} title="Case not deleted" />
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th scope="col">Case</th>
+              <th scope="col">State</th>
+              <th scope="col">Defect</th>
+              <th scope="col">
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {data.map((c) => (
+              // The whole row is clickable; the name stays a real link for keyboard and screen reader users.
+              <tr
+                key={c.id}
+                className="table__row--link"
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest('a, button')) return
+                  if (window.getSelection()?.toString()) return
+                  navigate(`/cases/${c.id}`)
+                }}
+              >
+                <td>
+                  <Link to={`/cases/${c.id}`}>{c.name}</Link>
+                  <div className="muted">
+                    {c.material} · {c.printer}
+                  </div>
+                </td>
+                <td>
+                  <StateBadge state={c.state} />
+                  <div className="muted">
+                    {c.outcome ? `${OUTCOME_LABEL[c.outcome]} · ` : ''}
+                    {dateTime(c.updated_at)}
+                  </div>
+                </td>
+                <td>
+                  {label(c.defect)}
+                  <div className="muted">iteration {c.iteration}</div>
+                </td>
+                <td className="table__action">
+                  <div className="btn-row">
+                    {c.allowed_actions.includes('confirm_success') && (
+                      <Button
+                        size="sm"
+                        variant="ok"
+                        title="The reprint is good: close the case as fixed"
+                        busy={confirm.isPending && confirm.variables?.id === c.id}
+                        onClick={() => confirm.mutate({ id: c.id })}
+                      >
+                        ✓ Reprint OK
+                      </Button>
+                    )}
+                    <Link
+                      to={`/cases/${c.id}`}
+                      className={
+                        c.state === 'escalated' || c.state === 'done' ? 'btn btn--sm' : 'btn btn--sm btn--primary'
+                      }
+                      tabIndex={-1}
+                      aria-hidden="true"
+                    >
+                      {NEXT_ACTION[c.state]} →
+                    </Link>
+                    <ConfirmButton
+                      size="sm"
+                      question={`Delete “${c.name}” and all its files?`}
+                      confirmLabel="Delete"
+                      busy={remove.isPending && remove.variables === c.id}
+                      onConfirm={() => remove.mutate(c.id)}
+                    >
+                      Delete
+                    </ConfirmButton>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   )
 }
 
@@ -92,28 +123,30 @@ export function CasesPage() {
     <main className="page">
       <div className="page-head">
         <div>
-          <h1>Casi di stampa</h1>
+          <h1>Print cases</h1>
           <p className="page-head__meta">
-            Dalla foto di un pezzo difettoso a un preset corretto e verificato sul G-code.
+            From a photo of a defective part to a corrected preset verified on the G-code.
           </p>
         </div>
       </div>
       <div className="layout layout--cases">
         <div className="stack">
-          <Card title="Nuovo caso" subtitle="Il progetto 3MF che hai stampato">
+          <Card title="New case" subtitle="The 3MF project you printed">
             <NewCaseForm />
           </Card>
-          <Card title="Come funziona">
+          <Card title="How it works">
             <ol className="how">
-              <li>Carichi il 3MF stampato e 1–4 foto del pezzo.</li>
-              <li>Gemma 4 su GPU AMD classifica il difetto (o lo indichi tu).</li>
-              <li>PrintLoop sceglie al massimo 2 parametri dalla knowledge base e rifà lo slicing.</li>
-              <li>Il pre-flight verifica nel G-code che la modifica abbia l'effetto previsto.</li>
-              <li>Approvi, rifiuti o correggi i valori; stampi e fotografi la ristampa.</li>
+              <li>Upload the printed 3MF and 1–4 photos of the part.</li>
+              <li>Gemma 4 on an AMD GPU classifies the defect (or you state it).</li>
+              <li>PrintLoop picks at most 2 parameters from the knowledge base and re-slices.</li>
+              <li>The pre-flight checks in the G-code that the change has the expected effect.</li>
+              <li>
+                You approve, reject or adjust the values, then print: if the reprint is good, one click closes the case.
+              </li>
             </ol>
           </Card>
         </div>
-        <Card title="Casi">
+        <Card title="Cases">
           <CaseTable />
         </Card>
       </div>

@@ -1,11 +1,11 @@
-"""Pre-flight: verifica sul G-code che la patch si sia propagata e non superi i limiti.
+"""Pre-flight: checks on the G-code that the patch propagated and does not exceed the limits.
 
-Per ogni modifica due livelli di controllo:
-1. propagazione: il CONFIG_BLOCK del nuovo G-code riporta il valore patchato;
-2. effetto sul percorso: la misura associata al parametro (kb.yaml, `check`) si sposta nella direzione
-   attesa e di almeno una frazione della variazione impostata. Se la feature non esiste nel modello
-   (es. bridge su un pezzo senza ponti) la patch è inutile e il controllo fallisce.
-Poi i limiti globali sul G-code nuovo: flusso volumetrico, temperature nel range del materiale.
+Two levels of checks for each change:
+1. propagation: the CONFIG_BLOCK of the new G-code carries the patched value;
+2. effect on the toolpath: the measure tied to the parameter (kb.yaml, `check`) moves in the expected
+   direction, by at least a fraction of the change that was set. If the feature does not exist in the
+   model (e.g. bridges on a part without any) the patch is useless and the check fails.
+Then the global limits on the new G-code: volumetric flow, temperatures within the material range.
 """
 from __future__ import annotations
 
@@ -13,8 +13,8 @@ from printloop import kb, project
 from printloop.gcode import GcodeStats
 from printloop.models import Change, Check, Preflight
 
-MIN_EFFECT = 0.25        # frazione minima della variazione impostata che deve vedersi nel G-code
-VOLUMETRIC_TOL = 1.05    # tolleranza sul flusso volumetrico nominale (accelerazioni ignorate)
+MIN_EFFECT = 0.25        # minimum fraction of the change that must show in the G-code
+VOLUMETRIC_TOL = 1.05    # tolerance on the nominal volumetric flow (accelerations ignored)
 
 
 def _num(text: str | None) -> float | None:
@@ -28,18 +28,18 @@ def _num(text: str | None) -> float | None:
 
 
 def _direction(delta: float) -> str:
-    return "aumento" if delta > 0 else "diminuzione"
+    return "increase" if delta > 0 else "decrease"
 
 
 def _moved(before: float | None, after: float | None, expected_delta: float) -> tuple[str, str]:
     if before is None or after is None:
-        return "fail", "misura non disponibile nel G-code"
+        return "fail", "measure not available in the G-code"
     measured = after - before
     if measured * expected_delta <= 0:
-        return "fail", f"atteso {_direction(expected_delta)}, misurato {measured:+.3g}"
+        return "fail", f"expected {_direction(expected_delta)}, measured {measured:+.3g}"
     if abs(measured) < MIN_EFFECT * abs(expected_delta):
-        return "fail", f"effetto troppo piccolo: {measured:+.3g} su {expected_delta:+.3g} impostato"
-    return "pass", f"{measured:+.3g} (impostato {expected_delta:+.3g})"
+        return "fail", f"effect too small: {measured:+.3g} out of {expected_delta:+.3g} set"
+    return "pass", f"{measured:+.3g} (set {expected_delta:+.3g})"
 
 
 def _propagation(change: Change, before: GcodeStats, after: GcodeStats) -> list[Check]:
@@ -56,7 +56,7 @@ def _propagation(change: Change, before: GcodeStats, after: GcodeStats) -> list[
         checks.append(Check(check="config", key=change.key, target=key, before=_num(before.config.get(key)),
                             after=got, expected=f"{float(value):g}",
                             status="pass" if ok else "fail",
-                            detail="valore scritto nel G-code" if ok else f"nel G-code: {found}"))
+                            detail="value written in the G-code" if ok else f"in the G-code: {found}"))
     return checks
 
 
@@ -66,14 +66,14 @@ def _effect(change: Change, before: GcodeStats, after: GcodeStats) -> Check:
     features = check.get("features", [])
     target = ", ".join(features) if features else change.key
     delta = float(change.after) - float(change.before)
-    expected = f"{_direction(delta)} verso {float(change.after):g}"
+    expected = f"{_direction(delta)} to {float(change.after):g}"
 
     def feature_metric(metric: str, first_layer: bool = False) -> Check:
         fb, fa = before.feature(features, first_layer), after.feature(features, first_layer)
         if fb.length_mm == 0 and fa.length_mm == 0:
-            where = "nel primo layer" if first_layer else "nel modello"
+            where = "in the first layer" if first_layer else "in the model"
             return Check(check=kind, key=change.key, target=target, expected=expected, status="fail",
-                         detail=f"feature '{target}' assente {where}: la modifica non ha effetto")
+                         detail=f"feature '{target}' missing {where}: the change has no effect")
         if metric == "speed":
             b, a = fb.speed(), fa.speed()
             status, detail = _moved(b, a, delta)
@@ -81,15 +81,15 @@ def _effect(change: Change, before: GcodeStats, after: GcodeStats) -> Check:
             b, a = fb.fan(), fa.fan()
             status, detail = _moved(b, a, delta)
             if status == "fail" and b is not None and b >= 99.5 and delta > 0:
-                detail = "ventola già al massimo durante la feature: la modifica non ha effetto"
-        else:  # e_per_mm: confronto dei rapporti
+                detail = "fan already at maximum during the feature: the change has no effect"
+        else:  # e_per_mm: compare the ratios
             b, a = fb.e_per_mm(), fa.e_per_mm()
             ratio = float(change.after) / float(change.before)
             if b and a:
                 status, detail = _moved(1.0, a / b, ratio - 1.0)
-                detail = f"rapporto misurato {a / b:.4f}, atteso {ratio:.4f}"
+                detail = f"measured ratio {a / b:.4f}, expected {ratio:.4f}"
             else:
-                status, detail = "fail", "misura non disponibile nel G-code"
+                status, detail = "fail", "measure not available in the G-code"
         return Check(check=kind, key=change.key, target=target, before=b, after=a, expected=expected,
                      status=status, detail=detail)
 
@@ -110,36 +110,36 @@ def _effect(change: Change, before: GcodeStats, after: GcodeStats) -> Check:
             want = float(next(iter(change.real.values())))
         ok = a is not None and abs(a - want) < 0.51
         return Check(check=kind, key=change.key, target=f"layer {layer}", before=b, after=a, expected=f"{want:g} °C",
-                     status="pass" if ok else "fail", detail="setpoint nel G-code" if ok else "setpoint diverso")
+                     status="pass" if ok else "fail", detail="setpoint in the G-code" if ok else "different setpoint")
     if kind == "retraction":
         b, a = before.retraction_median(), after.retraction_median()
         ok = a is not None and abs(a - float(change.after)) < 0.051
-        return Check(check=kind, key=change.key, target="retrazioni", before=b, after=a,
+        return Check(check=kind, key=change.key, target="retractions", before=b, after=a,
                      expected=f"{float(change.after):g} mm", status="pass" if ok else "fail",
-                     detail=f"mediana su {len(after.retractions)} retrazioni")
+                     detail=f"median of {len(after.retractions)} retractions")
     if kind == "feature_length":
         b, a = before.feature(features).length_mm, after.feature(features).length_mm
         status, detail = _moved(b, a, delta)
         return Check(check=kind, key=change.key, target=target, before=round(b, 1), after=round(a, 1),
-                     expected=expected, status=status, detail=f"lunghezza estrusa: {detail}")
+                     expected=expected, status=status, detail=f"extruded length: {detail}")
     if kind == "volumetric_limit":
         b, a = before.volumetric_p99(), after.volumetric_p99()
         ok = a is not None and a <= float(change.after) * VOLUMETRIC_TOL
-        return Check(check=kind, key=change.key, target="flusso volumetrico p99", before=b, after=a,
+        return Check(check=kind, key=change.key, target="volumetric flow p99", before=b, after=a,
                      expected=f"≤ {float(change.after):g} mm³/s", status="pass" if ok else "fail",
-                     detail="rispettato" if ok else "il G-code supera il nuovo limite")
-    return Check(check=kind, key=change.key, target=target, status="fail", detail=f"tipo di check sconosciuto: {kind}")
+                     detail="respected" if ok else "the G-code exceeds the new limit")
+    return Check(check=kind, key=change.key, target=target, status="fail", detail=f"unknown check type: {kind}")
 
 
 def _limit(check: str, target: str, before: float | None, after: float, ok: bool, expected: str, detail: str) -> Check:
-    """Un limite fallisce solo se la patch lo supera peggiorando; se era già fuori e migliora, passa con avviso."""
+    """A limit fails only if the patch makes it worse; if it was already exceeded and does not get worse, it passes."""
     if ok:
         return Check(check=check, target=target, before=before, after=after, expected=expected, detail=detail)
     if before is not None and abs(after - before) < 1e-9:
         return Check(check=check, target=target, before=before, after=after, expected=expected, status="pass",
-                     detail=f"{detail}; già fuori limite prima della patch, invariato")
+                     detail=f"{detail}; already over the limit before the patch, unchanged")
     return Check(check=check, target=target, before=before, after=after, expected=expected, status="fail",
-                 detail=f"{detail}; superato dalla patch")
+                 detail=f"{detail}; exceeded by the patch")
 
 
 def _limits(before: GcodeStats, after: GcodeStats, settings_after: dict) -> list[Check]:
@@ -148,10 +148,10 @@ def _limits(before: GcodeStats, after: GcodeStats, settings_after: dict) -> list
     p99, p99_before = after.volumetric_p99(), before.volumetric_p99()
     if vmax is not None and p99 is not None:
         ok = p99 <= vmax * VOLUMETRIC_TOL
-        chk = _limit("max_volumetric_speed", "flusso volumetrico p99", _r(p99_before), round(p99, 2), ok,
-                     f"≤ {vmax:g} mm³/s", "nominale, accelerazioni escluse")
+        chk = _limit("max_volumetric_speed", "volumetric flow p99", _r(p99_before), round(p99, 2), ok,
+                     f"≤ {vmax:g} mm³/s", "nominal, accelerations excluded")
         if not ok and p99_before is not None and p99 < p99_before - 1e-6:
-            chk.status, chk.detail = "pass", "ancora sopra il limite ma in diminuzione rispetto a prima della patch"
+            chk.status, chk.detail = "pass", "still above the limit but lower than before the patch"
         limits.append(chk)
     rng = project.filament_range(settings_after)
     if rng:
@@ -161,12 +161,12 @@ def _limits(before: GcodeStats, after: GcodeStats, settings_after: dict) -> list
                 continue
             ok = rng[0] - 0.5 <= temp <= rng[1] + 0.5
             limits.append(_limit("nozzle_range", f"layer {layer}", before.setpoint("hotend", layer), temp, ok,
-                                 f"{rng[0]:g}–{rng[1]:g} °C", "range del filamento"))
+                                 f"{rng[0]:g}–{rng[1]:g} °C", "filament range"))
     bed = after.setpoint("bed", 1)
     _, bed_max = kb.bounds("bed_temperature", settings_after)
     if bed is not None:
         limits.append(_limit("bed_max", "layer 1", before.setpoint("bed", 1), bed, bed <= bed_max + 0.5,
-                             f"≤ {bed_max:g} °C", f"materiale {project.material(settings_after)}"))
+                             f"≤ {bed_max:g} °C", f"material {project.material(settings_after)}"))
     return limits
 
 
@@ -177,19 +177,19 @@ def grams(stats: GcodeStats, settings: dict) -> float:
 
 
 def ui_checks(changes: list[Change], delivered_settings: dict) -> list[Check]:
-    """Ogni chiave patchata deve risultare "modificata rispetto al sistema" nel 3MF consegnato.
+    """Every patched key must be listed as "modified against the system preset" in the delivered 3MF.
 
-    È la regola con cui OrcaSlicer riapre un progetto: le chiavi non elencate in different_settings_to_system
-    tornano al valore del preset di sistema (update_non_diff_values_to_base_config).
+    That is the rule OrcaSlicer applies when it reopens a project: keys not listed in different_settings_to_system
+    go back to the system preset value (update_non_diff_values_to_base_config).
     """
     checks = []
     for change in changes:
         for key in change.real:
             ok = project.is_marked(delivered_settings, key)
-            checks.append(Check(check="slicer_ui", key=change.key, target=key, expected="dichiarata modificata",
+            checks.append(Check(check="slicer_ui", key=change.key, target=key, expected="declared modified",
                                 status="pass" if ok else "fail",
-                                detail="visibile all'apertura in OrcaSlicer/BambuStudio" if ok else
-                                "non dichiarata in different_settings_to_system: lo slicer mostrerebbe il valore di sistema"))
+                                detail="visible when opened in OrcaSlicer/BambuStudio" if ok else
+                                "not declared in different_settings_to_system: the slicer would show the system value"))
     return checks
 
 

@@ -1,37 +1,73 @@
-import { Link, useParams } from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router'
 import { ApiError } from '../api'
-import { useCase, useDecide, useDiagnose, usePropose, useUploadPhotos } from '../api/hooks'
-import type { Case, DefectClass, Iteration } from '../api/types'
+import {
+  useCase,
+  useConfirmSuccess,
+  useDecide,
+  useDeleteCase,
+  useDiagnose,
+  usePropose,
+  useRewind,
+  useUploadPhotos,
+} from '../api/hooks'
+import type { Case, DefectClass, Iteration, RewindTarget } from '../api/types'
 import { DecisionPanel } from '../components/DecisionPanel'
 import { DiagnosisView, ManualDiagnosisForm } from '../components/Diagnosis'
 import { AuditLog, IterationHistory } from '../components/History'
 import { LoopStepper } from '../components/LoopStepper'
 import { ChangeList, PatchReview } from '../components/PatchReview'
 import { PhotoGrid, PhotoUploader } from '../components/Photos'
-import { Badge, Button, Card, ErrorNotice, Notice, Spinner, StateBadge } from '../components/ui'
+import { Badge, Button, Card, ConfirmButton, ErrorNotice, Notice, Spinner, StateBadge } from '../components/ui'
 import { OUTCOME_LABEL, duration, num } from '../lib/format'
+import { describeTarget, previousStep } from '../lib/loop'
 
 function useActions(id: string) {
   const upload = useUploadPhotos(id)
   const diagnose = useDiagnose(id)
   const propose = usePropose(id)
   const decide = useDecide(id)
+  const confirm = useConfirmSuccess()
   const manual = (defect: DefectClass, severity: number, note: string) =>
     diagnose.mutate({ mode: 'operator', defect, severity, note })
-  return { upload, diagnose, propose, decide, manual }
+  return { upload, diagnose, propose, decide, confirm, manual }
 }
 type Actions = ReturnType<typeof useActions>
 
 const lastOf = (c: Case): Iteration => c.iterations[c.iterations.length - 1]!
 
+/** "a", "a and b", "a, b and c". */
+function listOf(items: string[]): string {
+  if (items.length < 2) return items.join('')
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
+}
+
 function ManualFallback({ actions, initial }: { actions: Actions; initial?: DefectClass }) {
   return (
     <details className="disclosure">
-      <summary>Indica il difetto a mano</summary>
+      <summary>State the defect manually</summary>
       <div>
         <ManualDiagnosisForm onSubmit={actions.manual} busy={actions.diagnose.isPending} initial={initial} />
       </div>
     </details>
+  )
+}
+
+/** After an approved patch: if the reprint is good, one click closes the case (it can be undone with "Step back"). */
+function ReprintCheck({ data, actions, title }: { data: Case; actions: Actions; title: string }) {
+  if (!data.allowed_actions.includes('confirm_success')) return null
+  return (
+    <Card
+      title={title}
+      subtitle="If the defect is gone, close the case now. Otherwise upload photos of the reprint for another iteration."
+    >
+      <div className="btn-row">
+        <Button variant="ok" busy={actions.confirm.isPending} onClick={() => actions.confirm.mutate({ id: data.id })}>
+          ✓ Reprint OK, close the case
+        </Button>
+      </div>
+      <ErrorNotice error={actions.confirm.error} title="Reprint not confirmed" />
+    </Card>
   )
 }
 
@@ -43,26 +79,27 @@ function PhotosStage({ data, actions }: { data: Case; actions: Actions }) {
     <>
       {reprint && previous?.proposal && (
         <Card
-          title="1. Stampa la patch approvata"
-          subtitle="Apri il 3MF in BambuStudio/OrcaSlicer o copialo sulla microSD."
+          title="1. Print the approved patch"
+          subtitle="Open the 3MF in BambuStudio/OrcaSlicer or copy it to the microSD card."
           accent
         >
           <ChangeList proposal={previous.proposal} />
           {data.latest_print_file_url && (
             <div className="btn-row">
               <a className="btn btn--primary" href={data.latest_print_file_url} download>
-                Scarica il 3MF da stampare
+                Download the 3MF to print
               </a>
-              <span className="muted">tempo stimato {duration(previous.slice?.print_time_s)}</span>
+              <span className="muted">estimated time {duration(previous.slice?.print_time_s)}</span>
             </div>
           )}
         </Card>
       )}
+      {reprint && <ReprintCheck data={data} actions={actions} title="2. Is the reprint good?" />}
       <Card
-        title={reprint ? '2. Foto della ristampa' : 'Foto del pezzo stampato'}
+        title={reprint ? '3. Photos of the reprint' : 'Photos of the printed part'}
         subtitle={
           reprint
-            ? 'Stessa inquadratura delle foto precedenti: la severità si confronta con la stessa rubrica.'
+            ? 'Only if the defect is still there. Same framing as the previous photos: severity is compared with the same rubric.'
             : undefined
         }
       >
@@ -84,10 +121,11 @@ function DiagnoseStage({ data, actions }: { data: Case; actions: Actions }) {
   const llm = data.llm_mode === 'llm'
   return (
     <>
-      <Card title="Foto" subtitle={it.note ? `Nota: ${it.note}` : undefined}>
+      <ReprintCheck data={data} actions={actions} title="Is the reprint good?" />
+      <Card title="Photos" subtitle={it.note ? `Note: ${it.note}` : undefined}>
         <PhotoGrid urls={it.photo_urls} />
         <details className="disclosure">
-          <summary>Sostituisci le foto</summary>
+          <summary>Replace the photos</summary>
           <div>
             <PhotoUploader
               reprint={it.n > 1}
@@ -98,9 +136,9 @@ function DiagnoseStage({ data, actions }: { data: Case; actions: Actions }) {
           </div>
         </details>
       </Card>
-      <Card title="Diagnosi" accent>
+      <Card title="Diagnosis" accent>
         {data.state === 'needs_info' && (
-          <Notice tone="warn" title="Il modello chiede altre informazioni">
+          <Notice tone="warn" title="The model asks for more information">
             {data.message}
           </Notice>
         )}
@@ -113,19 +151,19 @@ function DiagnoseStage({ data, actions }: { data: Case; actions: Actions }) {
                 busy={actions.diagnose.isPending}
                 onClick={() => actions.diagnose.mutate({ mode: 'llm' })}
               >
-                Analizza con Gemma 4
+                Analyse with Gemma 4
               </Button>
-              <span className="muted">tassonomia chiusa, severità 0–3, evidenze sulle foto</span>
+              <span className="muted">closed taxonomy, severity 0–3, evidence on the photos</span>
             </div>
             {actions.diagnose.isPending && (
-              <Spinner label="Gemma 4 sta analizzando le foto (può richiedere fino a un minuto)…" />
+              <Spinner label="Gemma 4 is analysing the photos (this can take up to a minute)…" />
             )}
             <ManualFallback actions={actions} initial={it.diagnosis?.primary} />
           </>
         ) : (
           <>
             <Notice tone="info">
-              LLM non configurato: indica tu il difetto. Patch, slicing e verifica funzionano lo stesso.
+              LLM not configured: state the defect yourself. Patch, slicing and verification work all the same.
             </Notice>
             <ManualDiagnosisForm onSubmit={actions.manual} busy={actions.diagnose.isPending} />
           </>
@@ -140,25 +178,26 @@ function ProposeStage({ data, actions }: { data: Case; actions: Actions }) {
   const it = lastOf(data)
   return (
     <>
-      <Card title="Diagnosi">
+      <ReprintCheck data={data} actions={actions} title="Is the reprint good after all?" />
+      <Card title="Diagnosis">
         {it.diagnosis && <DiagnosisView diagnosis={it.diagnosis} />}
         <PhotoGrid urls={it.photo_urls} />
         <ManualFallback actions={actions} initial={it.diagnosis?.primary} />
       </Card>
       <Card
-        title="Correzione del preset"
+        title="Preset correction"
         accent
-        subtitle="Il parametro si sceglie tra i candidati della knowledge base; il validatore e il pre-flight sul G-code decidono se la patch passa."
+        subtitle="The parameter is chosen among the knowledge base candidates; the validator and the G-code pre-flight decide whether the patch passes."
       >
         {data.rejected_keys.length > 0 && (
-          <p className="muted">Esclusi perché già rifiutati: {data.rejected_keys.join(', ')}</p>
+          <p className="muted">Excluded because already rejected: {data.rejected_keys.join(', ')}</p>
         )}
         <div className="btn-row">
           <Button variant="primary" busy={actions.propose.isPending} onClick={() => actions.propose.mutate()}>
-            Proponi una patch verificata
+            Propose a verified patch
           </Button>
         </div>
-        {actions.propose.isPending && <Spinner label="Patch, slicing e verifica sul G-code in corso…" />}
+        {actions.propose.isPending && <Spinner label="Patch, slicing and G-code verification in progress…" />}
         <ErrorNotice error={actions.propose.error} />
       </Card>
     </>
@@ -170,14 +209,14 @@ function ApprovalStage({ data, actions }: { data: Case; actions: Actions }) {
   if (!it.proposal) return null
   return (
     <>
-      <Card title="Diagnosi">
+      <Card title="Diagnosis">
         {it.diagnosis && <DiagnosisView diagnosis={it.diagnosis} />}
         <PhotoGrid urls={it.photo_urls} />
       </Card>
-      <Card title="Patch da approvare" subtitle={data.message} accent>
+      <Card title="Patch to approve" subtitle={data.message} accent>
         <PatchReview proposal={it.proposal} preflight={it.preflight} validation={it.validation} />
       </Card>
-      <Card title="Decisione" subtitle="Niente parte senza la tua approvazione. Ogni scelta resta nell'audit.">
+      <Card title="Decision" subtitle="Nothing ships without your approval. Every choice is kept in the audit log.">
         <DecisionPanel
           key={it.proposal.at}
           options={data.edit_options}
@@ -186,7 +225,7 @@ function ApprovalStage({ data, actions }: { data: Case; actions: Actions }) {
           error={actions.decide.error}
           onDecide={(req) => actions.decide.mutate(req)}
         />
-        {actions.decide.isPending && <Spinner label="Registrazione della decisione…" />}
+        {actions.decide.isPending && <Spinner label="Recording the decision…" />}
       </Card>
     </>
   )
@@ -197,21 +236,21 @@ function ClosedStage({ data }: { data: Case }) {
   const ok = data.state === 'done'
   return (
     <>
-      <Notice tone={ok ? 'ok' : 'danger'} title={data.outcome ? OUTCOME_LABEL[data.outcome] : 'Caso chiuso'}>
+      <Notice tone={ok ? 'ok' : 'danger'} title={data.outcome ? OUTCOME_LABEL[data.outcome] : 'Case closed'}>
         {data.message}
       </Notice>
       {it.diagnosis && (
-        <Card title={ok ? 'Ultima valutazione' : 'Diagnosi'}>
+        <Card title={ok ? 'Last assessment' : 'Diagnosis'}>
           <DiagnosisView diagnosis={it.diagnosis} />
           <PhotoGrid urls={it.photo_urls} />
         </Card>
       )}
       {data.latest_print_file_url && (
-        <Card title="Preset finale">
-          <p className="muted">Il 3MF contiene le impostazioni corrette: salvale come preset utente nello slicer.</p>
+        <Card title="Final preset">
+          <p className="muted">The 3MF holds the corrected settings: save them as a user preset in the slicer.</p>
           <div className="btn-row">
             <a className="btn" href={data.latest_print_file_url} download>
-              Scarica il 3MF finale
+              Download the final 3MF
             </a>
           </div>
         </Card>
@@ -220,8 +259,7 @@ function ClosedStage({ data }: { data: Case }) {
   )
 }
 
-function Stage({ data }: { data: Case }) {
-  const actions = useActions(data.id)
+function Stage({ data, actions }: { data: Case; actions: Actions }) {
   switch (data.state) {
     case 'awaiting_photos':
       return <PhotosStage data={data} actions={actions} />
@@ -237,24 +275,63 @@ function Stage({ data }: { data: Case }) {
   }
 }
 
+/** Confirmation for going back: says what is discarded before doing it. */
+function RewindPanel({
+  target,
+  busy,
+  error,
+  onConfirm,
+  onCancel,
+}: {
+  target: RewindTarget
+  busy: boolean
+  error: unknown
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const confirmRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    confirmRef.current?.focus()
+    confirmRef.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [target])
+  return (
+    <div className="notice notice--warn rewind-panel" role="group" aria-label="Go back">
+      <strong>Go back to the {describeTarget(target)}?</strong>
+      <span>
+        {target.discards.length ? `This discards ${listOf(target.discards)}.` : 'Nothing is discarded.'} Photos and
+        files are archived in the case folder, not deleted.
+      </span>
+      <div className="btn-row">
+        <Button ref={confirmRef} variant="primary" busy={busy} onClick={onConfirm}>
+          Go back
+        </Button>
+        <Button variant="ghost" disabled={busy} onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+      <ErrorNotice error={error} title="Could not go back" />
+    </div>
+  )
+}
+
 function Summary({ data }: { data: Case }) {
   const patches = data.iterations.filter((it) => it.decision?.approved).length
   return (
-    <Card title="Riepilogo">
+    <Card title="Summary">
       <dl className="kv">
-        <dt>Stampante</dt>
+        <dt>Printer</dt>
         <dd>{data.printer ?? '—'}</dd>
-        <dt>Materiale</dt>
+        <dt>Material</dt>
         <dd>{data.material ?? '—'}</dd>
-        <dt>Processo</dt>
+        <dt>Process</dt>
         <dd>{data.process ?? '—'}</dd>
-        <dt>Stampa originale</dt>
+        <dt>Original print</dt>
         <dd>
           {duration(data.baseline.print_time_s)} · {num(data.baseline.filament_g ?? null, 'g')}
         </dd>
         <dt>Slicer</dt>
         <dd>{data.baseline.slicer ?? '—'}</dd>
-        <dt>Patch approvate</dt>
+        <dt>Approved patches</dt>
         <dd>
           {patches} / {data.max_iterations}
         </dd>
@@ -268,37 +345,26 @@ function Summary({ data }: { data: Case }) {
   )
 }
 
-export function CasePage() {
-  const { id = '' } = useParams()
-  const { data, isLoading, error } = useCase(id)
-
-  if (isLoading) {
-    return (
-      <main className="page">
-        <Spinner label="Caricamento del caso…" />
-      </main>
-    )
-  }
-  if (error || !data) {
-    const missing = error instanceof ApiError && error.status === 404
-    return (
-      <main className="page stack">
-        <Link className="back" to="/">
-          ← Tutti i casi
-        </Link>
-        <ErrorNotice
-          error={error ?? 'Caso non disponibile'}
-          title={missing ? 'Caso non trovato' : 'Errore di caricamento'}
-        />
-      </main>
-    )
-  }
-
+function CaseView({ data }: { data: Case }) {
+  const navigate = useNavigate()
+  const actions = useActions(data.id)
+  const rewind = useRewind(data.id)
+  const remove = useDeleteCase()
+  const [pending, setPending] = useState<RewindTarget | null>(null)
   const it = lastOf(data)
+  const back = previousStep(data)
+
+  const ask = (target: RewindTarget) => {
+    rewind.reset()
+    setPending(target)
+  }
+  const goBack = (target: RewindTarget) =>
+    rewind.mutate({ iteration: target.iteration, step: target.step }, { onSuccess: () => setPending(null) })
+
   return (
     <main className="page">
       <Link className="back" to="/">
-        ← Tutti i casi
+        ← All cases
       </Link>
       <div className="page-head">
         <div>
@@ -309,22 +375,71 @@ export function CasePage() {
         </div>
         <div className="btn-row">
           <StateBadge state={data.state} />
-          <Badge plain>Iterazione {it.n}</Badge>
+          <Badge plain>Iteration {it.n}</Badge>
+          {back && (
+            <Button size="sm" title={`Go back to the ${describeTarget(back)}`} onClick={() => ask(back)}>
+              ↶ Step back
+            </Button>
+          )}
+          <ConfirmButton
+            size="sm"
+            question="Delete this case and all its files?"
+            confirmLabel="Delete"
+            busy={remove.isPending}
+            onConfirm={() => remove.mutate(data.id, { onSuccess: () => void navigate('/') })}
+          >
+            Delete case
+          </ConfirmButton>
         </div>
       </div>
-      <LoopStepper data={data} />
+      <ErrorNotice error={remove.error} title="Case not deleted" />
+      <LoopStepper data={data} onRewind={ask} />
+      {pending && (
+        <RewindPanel
+          target={pending}
+          busy={rewind.isPending}
+          error={rewind.error}
+          onConfirm={() => goBack(pending)}
+          onCancel={() => setPending(null)}
+        />
+      )}
       <div className="layout">
         <div className="stack">
-          <Stage data={data} />
+          <Stage data={data} actions={actions} />
         </div>
-        <aside className="stack" aria-label="Dettagli del caso">
+        <aside className="stack" aria-label="Case details">
           <Summary data={data} />
-          <Card title="Storico">
-            <IterationHistory data={data} />
+          <Card title="History">
+            <IterationHistory data={data} onRewind={ask} />
           </Card>
           <AuditLog caseId={data.id} />
         </aside>
       </div>
     </main>
   )
+}
+
+export function CasePage() {
+  const { id = '' } = useParams()
+  const { data, isLoading, error } = useCase(id)
+
+  if (isLoading) {
+    return (
+      <main className="page">
+        <Spinner label="Loading the case…" />
+      </main>
+    )
+  }
+  if (error || !data) {
+    const missing = error instanceof ApiError && error.status === 404
+    return (
+      <main className="page stack">
+        <Link className="back" to="/">
+          ← All cases
+        </Link>
+        <ErrorNotice error={error ?? 'Case unavailable'} title={missing ? 'Case not found' : 'Loading error'} />
+      </main>
+    )
+  }
+  return <CaseView data={data} />
 }

@@ -1,9 +1,9 @@
 {
-  "id": "b1a1bdae50",
+  "id": "0f422d0b93",
   "name": "Bridge test",
   "state": "awaiting_photos",
-  "created_at": "2026-10-16T22:56:20+00:00",
-  "updated_at": "2026-10-16T22:56:20+00:00",
+  "created_at": "2026-10-18T04:02:28+00:00",
+  "updated_at": "2026-10-18T04:02:28+00:00",
   "printer": "Bambu Lab P1S 0.4 nozzle",
   "material": "PLA",
   "process": "0.20mm Standard @BBL X1C",
@@ -12,7 +12,7 @@
     "sliced_3mf": "sliced.3mf",
     "gcode": {
       "layers": 85,
-      "filament_mm": 1449.3,
+      "filament_mm": 1449.2,
       "features": {
         "Bottom surface": {
           "length_mm": 3059.0,
@@ -32,7 +32,7 @@
           "length_mm": 270.4,
           "moves": 26,
           "speed_mm_s": 100.0,
-          "e_per_mm": 0.02816,
+          "e_per_mm": 0.02786,
           "fan_pct": 99.0
         },
         "Inner wall": {
@@ -93,12 +93,14 @@
       "volumetric_p99_mm3_s": 20.58,
       "header": {
         "total layer number": "85",
-        "total filament length [mm]": "1449.26",
+        "total filament length [mm]": "1449.18",
         "total filament weight [g]": "4.39"
       }
     },
-    "print_time_s": 703.6259155273438,
-    "slice_elapsed_s": 0.31,
+    "print_time_s": 703.5969848632812,
+    "slice_elapsed_s": 0.37,
+    "slicer": "BambuStudio-02.08.02.61",
+    "notes": [],
     "filament_g": 4.39
   },
   "iterations": [
@@ -117,9 +119,10 @@
       "slice": null,
       "decision": null,
       "rejected": [],
+      "confirmed": null,
       "photo_urls": [],
       "print_file_url": null,
-      "project_url": "/api/cases/b1a1bdae50/files/original.3mf"
+      "project_url": "/api/cases/0f422d0b93/files/original.3mf"
     }
   ],
   "rejected_keys": [],
@@ -130,7 +133,8 @@
     "diagnose_operator",
     "stop"
   ],
-  "llm_mode": "offline",
+  "rewind_targets": [],
+  "llm_mode": "llm",
   "latest_print_file_url": null,
   "edit_options": []
 }

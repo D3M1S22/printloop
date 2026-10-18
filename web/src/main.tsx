@@ -4,7 +4,7 @@ import { App } from './App'
 import './styles.css'
 
 const root = document.getElementById('root')
-if (!root) throw new Error('#root mancante in index.html')
+if (!root) throw new Error('#root missing in index.html')
 
 createRoot(root).render(
   <StrictMode>

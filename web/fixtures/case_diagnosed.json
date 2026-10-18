@@ -1,9 +1,9 @@
 {
-  "id": "b1a1bdae50",
+  "id": "0f422d0b93",
   "name": "Bridge test",
   "state": "diagnosed",
-  "created_at": "2026-10-16T22:56:20+00:00",
-  "updated_at": "2026-10-16T22:56:20+00:00",
+  "created_at": "2026-10-18T04:02:28+00:00",
+  "updated_at": "2026-10-18T04:02:28+00:00",
   "printer": "Bambu Lab P1S 0.4 nozzle",
   "material": "PLA",
   "process": "0.20mm Standard @BBL X1C",
@@ -12,7 +12,7 @@
     "sliced_3mf": "sliced.3mf",
     "gcode": {
       "layers": 85,
-      "filament_mm": 1449.3,
+      "filament_mm": 1449.2,
       "features": {
         "Bottom surface": {
           "length_mm": 3059.0,
@@ -32,7 +32,7 @@
           "length_mm": 270.4,
           "moves": 26,
           "speed_mm_s": 100.0,
-          "e_per_mm": 0.02816,
+          "e_per_mm": 0.02786,
           "fan_pct": 99.0
         },
         "Inner wall": {
@@ -93,12 +93,14 @@
       "volumetric_p99_mm3_s": 20.58,
       "header": {
         "total layer number": "85",
-        "total filament length [mm]": "1449.26",
+        "total filament length [mm]": "1449.18",
         "total filament weight [g]": "4.39"
       }
     },
-    "print_time_s": 703.6259155273438,
-    "slice_elapsed_s": 0.31,
+    "print_time_s": 703.5969848632812,
+    "slice_elapsed_s": 0.37,
+    "slicer": "BambuStudio-02.08.02.61",
+    "notes": [],
     "filament_g": 4.39
   },
   "iterations": [
@@ -110,7 +112,7 @@
         "iter_1/photos/front.jpg",
         "iter_1/photos/macro.jpg"
       ],
-      "note": "i ponti cedono al centro",
+      "note": "the bridges sag in the middle",
       "diagnosis": {
         "findings": [
           {
@@ -120,11 +122,11 @@
             "evidence": [
               {
                 "photo": "iter_1/photos/front.jpg",
-                "description": "indicato dall'operatore"
+                "description": "stated by the operator"
               },
               {
                 "photo": "iter_1/photos/macro.jpg",
-                "description": "indicato dall'operatore"
+                "description": "stated by the operator"
               }
             ],
             "location": ""
@@ -136,9 +138,9 @@
         "source": "operator",
         "model": null,
         "latency_ms": null,
-        "note": "i ponti cedono al centro",
-        "at": "2026-10-16T22:56:20+00:00",
-        "primary_label": "Bridge che cedono",
+        "note": "the bridges sag in the middle",
+        "at": "2026-10-18T04:02:28+00:00",
+        "primary_label": "Sagging bridges",
         "severity": 3,
         "confidence": 1.0
       },
@@ -150,23 +152,42 @@
       "slice": null,
       "decision": null,
       "rejected": [],
+      "confirmed": null,
       "photo_urls": [
-        "/api/cases/b1a1bdae50/files/iter_1/photos/front.jpg",
-        "/api/cases/b1a1bdae50/files/iter_1/photos/macro.jpg"
+        "/api/cases/0f422d0b93/files/iter_1/photos/front.jpg",
+        "/api/cases/0f422d0b93/files/iter_1/photos/macro.jpg"
       ],
       "print_file_url": null,
-      "project_url": "/api/cases/b1a1bdae50/files/original.3mf"
+      "project_url": "/api/cases/0f422d0b93/files/original.3mf"
     }
   ],
   "rejected_keys": [],
   "outcome": null,
-  "message": "Bridge che cedono, severità 3/3.",
+  "message": "Sagging bridges, severity 3/3.",
   "allowed_actions": [
     "propose",
     "diagnose",
-    "stop"
+    "stop",
+    "rewind"
   ],
-  "llm_mode": "offline",
+  "rewind_targets": [
+    {
+      "iteration": 1,
+      "step": "photos",
+      "discards": [
+        "2 photos of iteration 1",
+        "the diagnosis of iteration 1"
+      ]
+    },
+    {
+      "iteration": 1,
+      "step": "diagnosis",
+      "discards": [
+        "the diagnosis of iteration 1"
+      ]
+    }
+  ],
+  "llm_mode": "llm",
   "latest_print_file_url": null,
   "edit_options": []
 }

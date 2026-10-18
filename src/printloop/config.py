@@ -1,4 +1,4 @@
-"""Configurazione centrale, letta da .env (vedi .env.example)."""
+"""Central configuration, read from .env (see .env.example)."""
 from __future__ import annotations
 
 import os
@@ -15,8 +15,8 @@ PACKAGE_DIR = Path(__file__).resolve().parent
 KB_PATH = PACKAGE_DIR / "kb.yaml"
 EXAMPLES_DIR = ROOT / "examples"
 
-# Eseguibili cercati se non indicati in .env. OrcaSlicer e BambuStudio hanno la stessa CLI, ma ognuno
-# riscrive il progetto nel proprio formato: un progetto va lavorato con lo slicer che l'ha creato.
+# Executables searched for when not set in .env. OrcaSlicer and BambuStudio share the same CLI, but each one
+# rewrites the project in its own format: a project must be processed with the slicer that created it.
 SLICER_CANDIDATES = {
     "orca": ("orca-slicer", "OrcaSlicer", "~/.local/bin/OrcaSlicer.AppImage", "~/Applications/OrcaSlicer.AppImage",
              "/opt/OrcaSlicer/bin/orca-slicer"),
@@ -36,8 +36,8 @@ class LLMConfig:
     api_key: str | None = _env("LLM_API_KEY")
     model: str = _env("LLM_MODEL", "google/gemma-4-26B-A4B-it")
     timeout_s: float = float(_env("LLM_TIMEOUT_S", "120"))
-    # Margine anche per i modelli che ragionano prima di rispondere (reasoning_content): con 1200 token
-    # Gemma 4 26B su llama.cpp a volte tronca il JSON.
+    # Headroom for models that reason before answering (reasoning_content): with 1200 tokens
+    # Gemma 4 26B on llama.cpp sometimes truncates the JSON.
     max_tokens: int = int(_env("LLM_MAX_TOKENS", "4096"))
 
     @property
@@ -52,10 +52,10 @@ class LoopConfig:
     min_confidence: float = float(_env("PRINTLOOP_MIN_CONFIDENCE", "0.6"))
     max_image_px: int = int(_env("PRINTLOOP_MAX_IMAGE_PX", "1536"))
     max_photos: int = 4
-    # Severità (rubrica 0-3) sotto o uguale alla quale il pezzo è accettabile.
+    # Severity (0-3 rubric) at or below which the part is acceptable.
     accept_severity: int = 1
     max_changes: int = 2
-    # Tentativi automatici di proposta quando validatore o pre-flight rifiutano.
+    # Automatic proposal attempts when the validator or the pre-flight reject.
     propose_attempts: int = 3
 
 
@@ -67,7 +67,7 @@ def _find(candidate: str) -> str | None:
 
 
 def slicer_bins() -> dict[str, str]:
-    """Slicer installati per tipo ("orca", "bambu"): da ORCA_SLICER_BIN / BAMBU_STUDIO_BIN o dai percorsi noti."""
+    """Installed slicers by kind ("orca", "bambu"): from ORCA_SLICER_BIN / BAMBU_STUDIO_BIN or known paths."""
     found = {}
     for kind, candidates in SLICER_CANDIDATES.items():
         explicit = _env(SLICER_ENV[kind])
@@ -78,7 +78,7 @@ def slicer_bins() -> dict[str, str]:
 
 
 def slicer_bin(kind: str | None = None) -> str | None:
-    """SLICER_BIN forza un unico slicer; altrimenti quello del tipo richiesto, o il primo disponibile."""
+    """SLICER_BIN forces a single slicer; otherwise the one of the requested kind, or the first available."""
     explicit = _env("SLICER_BIN")
     if explicit:
         return explicit

@@ -1,4 +1,4 @@
-/* PrintLoop UI. Token su :root, tema scuro automatico. Nessun font esterno: in sede la rete può mancare. */
+/* PrintLoop UI. Tokens on :root, automatic dark theme. No external fonts: the venue network may be down. */
 
 :root {
   --font: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -220,7 +220,7 @@ code,
   }
 }
 
-/* --- primitive ---------------------------------------------------------------------------- */
+/* --- primitives --------------------------------------------------------------------------- */
 
 .card {
   background: var(--surface);
@@ -298,6 +298,24 @@ code,
   --btn-border: transparent;
   --btn-bg: transparent;
   --btn-fg: var(--text-2);
+}
+.btn--ok {
+  --btn-bg: var(--ok-soft);
+  --btn-fg: var(--ok);
+  --btn-border: color-mix(in srgb, var(--ok) 45%, var(--border));
+}
+/* Inline confirmation: the button turns into question + confirm + cancel, without a modal. */
+.confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.confirm__question {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-2);
+  white-space: normal;
 }
 .btn--sm {
   min-height: 30px;
@@ -512,7 +530,7 @@ fieldset {
   box-shadow: inset var(--focus);
 }
 
-/* --- elenco casi -------------------------------------------------------------------------- */
+/* --- case list ---------------------------------------------------------------------------- */
 
 .table {
   width: 100%;
@@ -556,6 +574,10 @@ fieldset {
   text-align: right;
   white-space: nowrap;
 }
+.table__action .btn-row {
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
 .table .table__action a.btn {
   font-weight: 600;
   text-decoration: none;
@@ -564,6 +586,8 @@ fieldset {
   color: var(--accent-text);
 }
 .table-wrap {
+  /* Containing block for the absolutely positioned .sr-only header, which would otherwise widen the page. */
+  position: relative;
   overflow-x: auto;
 }
 
@@ -646,6 +670,25 @@ fieldset {
 .stepper li[data-status='stopped']::before {
   background: var(--danger);
 }
+/* A completed step is a button: clicking it goes back to that step (after a confirmation). */
+.stepper__btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.stepper__btn:hover {
+  color: var(--accent);
+  text-decoration-style: solid;
+}
+.rewind-panel {
+  margin-bottom: 16px;
+}
 .stepper__current {
   display: none;
   margin: -8px 0 16px;
@@ -654,7 +697,7 @@ fieldset {
   color: var(--accent);
 }
 @media (max-width: 560px) {
-  /* Sotto i 560 px le etichette non stanno nelle colonne: restano solo per gli screen reader. */
+  /* Below 560 px the labels do not fit the columns: they stay for screen readers only. */
   .stepper__label {
     position: absolute;
     width: 1px;
@@ -668,7 +711,7 @@ fieldset {
   }
 }
 
-/* --- foto --------------------------------------------------------------------------------- */
+/* --- photos ------------------------------------------------------------------------------- */
 
 .photos {
   display: grid;
@@ -704,7 +747,7 @@ fieldset {
   justify-self: start;
 }
 
-/* --- diagnosi ----------------------------------------------------------------------------- */
+/* --- diagnosis ---------------------------------------------------------------------------- */
 
 .diagnosis {
   display: grid;
@@ -763,7 +806,7 @@ fieldset {
   text-align: right;
 }
 
-/* --- patch e pre-flight ------------------------------------------------------------------- */
+/* --- patch and pre-flight ----------------------------------------------------------------- */
 
 .changes {
   display: grid;
@@ -923,7 +966,7 @@ details.disclosure > div {
   font-size: 0.86rem;
 }
 
-/* --- decisione ---------------------------------------------------------------------------- */
+/* --- decision ----------------------------------------------------------------------------- */
 
 .edit-grid {
   display: grid;
@@ -943,7 +986,7 @@ details.disclosure > div {
   font-size: 0.9rem;
 }
 
-/* --- storico e audit ---------------------------------------------------------------------- */
+/* --- history and audit -------------------------------------------------------------------- */
 
 .timeline {
   list-style: none;

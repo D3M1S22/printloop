@@ -1,4 +1,4 @@
-"""I test non chiamano mai un LLM reale, anche se .env lo configura: i test che servono lo simulano."""
+"""Tests never call a real LLM, even when .env configures one: the tests that need it fake it."""
 import pytest
 
 from printloop import llm

@@ -1,9 +1,9 @@
-"""Proposta della patch: a regole (deterministica) o con Gemma, sempre tra i candidati della KB.
+"""Patch proposal: rule-based (deterministic) or by Gemma, always among the KB candidates.
 
-Logica del loop a regole: alla prima iterazione si prende il primo candidato utilizzabile e lo si sposta
-di un passo. Se il difetto è lo stesso dell'iterazione precedente e la severità è scesa, si insiste sullo
-stesso parametro; se non è scesa, si passa al candidato successivo. Il modello, quando c'è, sceglie tra gli
-stessi candidati filtrati; il validatore controlla comunque ogni proposta.
+Rule-based loop: on the first iteration take the first usable candidate and move it by one step. If the
+defect is the same as in the previous iteration and severity went down, keep pushing the same parameter;
+if it did not, move to the next candidate. The model, when available, chooses among the same filtered
+candidates; the validator checks every proposal anyway.
 """
 from __future__ import annotations
 
@@ -17,18 +17,18 @@ from printloop.taxonomy import label
 
 @dataclass
 class PastStep:
-    """Un'iterazione approvata: difetto osservato prima della patch e modifiche applicate."""
+    """An approved iteration: defect observed before the patch and changes applied."""
     defect: str
     severity: int
     changes: list[Change]
 
 
 def viable(defect: str, settings: dict, exclude: set[str]) -> list[dict]:
-    """Candidati applicabili: presenti nel progetto, non esclusi, con margine nella direzione richiesta.
+    """Usable candidates: present in the project, not excluded, with room in the required direction.
 
-    Ordine dei sospetti: prima i parametri cambiati dall'utente rispetto al profilo di sistema, poi quelli
-    già all'estremo del range nella direzione che peggiora il difetto (es. ugello al massimo con stringing),
-    poi l'ordine della KB.
+    Order of suspects: first the parameters the user changed against the system profile, then those
+    already at the end of the range that worsens the defect (e.g. nozzle at its maximum with stringing),
+    then the KB order.
     """
     out = []
     modified = project.modified_keys(settings)
@@ -40,13 +40,13 @@ def viable(defect: str, settings: dict, exclude: set[str]) -> list[dict]:
             continue
         lo, hi = kb.bounds(cand.key, settings)
         if (current > hi and cand.sign < 0) or (current < lo and cand.sign > 0):
-            target = hi if current > hi else lo  # valore fuori limiti: prima lo si riporta dentro
+            target = hi if current > hi else lo  # value out of bounds: bring it back inside first
         else:
             target = min(hi, max(lo, current + cand.sign * cand.step))
         if (target - current) * cand.sign <= 1e-9:
             continue
         real = project.resolve_keys(settings, cand.key, cand.meta)
-        # 0 = all'estremo "buono", 1 = all'estremo opposto (quello che peggiora il difetto)
+        # 0 = at the "good" end, 1 = at the opposite end (the one that worsens the defect)
         position = (current - lo) / (hi - lo) if hi > lo else 0.5
         badness = position if cand.sign < 0 else 1 - position
         out.append({"key": cand.key, "label": cand.label, "unit": cand.unit, "direction": cand.direction,
@@ -55,7 +55,7 @@ def viable(defect: str, settings: dict, exclude: set[str]) -> list[dict]:
     return sorted(out, key=lambda o: (not o["modified_by_user"], not o["at_extreme"]))
 
 
-EXTREME = 0.85  # frazione del range oltre la quale un valore è considerato all'estremo
+EXTREME = 0.85  # fraction of the range beyond which a value counts as extreme
 
 
 def _order(options: list[dict], diagnosis: Diagnosis, history: list[PastStep]) -> list[dict]:
@@ -74,17 +74,17 @@ def propose_rules(diagnosis: Diagnosis, settings: dict, history: list[PastStep],
     if not options:
         return None
     pick = options[0]
-    verb = "aumentare" if pick["direction"] == "up" else "ridurre"
+    verb = "increase" if pick["direction"] == "up" else "decrease"
     repeat = bool(history) and history[-1].defect == diagnosis.primary and pick["key"] in {
         c.key for c in history[-1].changes}
-    reason = (f"{label(diagnosis.primary)}: {verb} {pick['label'].lower()} di un passo "
+    reason = (f"{label(diagnosis.primary)}: {verb} {pick['label'].lower()} by one step "
               f"({pick['current']:g} → {pick['default_target']:g} {pick['unit']})")
     if repeat:
-        reason += "; la severità è scesa con lo stesso parametro, si prosegue nella stessa direzione"
+        reason += "; severity went down with the same parameter, continuing in the same direction"
     change = Change(key=pick["key"], after=pick["default_target"], reason=reason)
     return Proposal(defect=diagnosis.primary, changes=[change], source="rules",
-                    rationale=f"Primo candidato utilizzabile della knowledge base per '{label(diagnosis.primary)}'.",
-                    expected_effect=f"riduzione di: {label(diagnosis.primary).lower()}")
+                    rationale=f"First usable knowledge base candidate for '{label(diagnosis.primary)}'.",
+                    expected_effect=f"less {label(diagnosis.primary).lower()}")
 
 
 PROPOSE_SYSTEM = """You are the process engineer of PrintLoop. Given a diagnosed FDM print defect, choose the slicer
@@ -94,7 +94,7 @@ Rules:
 - Prefer ONE change, unless two are clearly needed. Keep each change within one step (max two) of the current value.
 - Use the history: if a previous change on the same defect did not reduce severity, try a different parameter.
 - A parameter the user changed away from the system profile is a strong suspect for the cause.
-- reason and rationale must be in Italian, short and concrete; expected_effect describes what should change on the part.
+- reason and rationale must be in English, short and concrete; expected_effect describes what should change on the part.
 - Answer with JSON only."""
 
 

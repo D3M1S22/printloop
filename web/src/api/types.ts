@@ -1,5 +1,5 @@
-// Tipi dell'API PrintLoop: rispecchiano src/printloop/models.py e i campi derivati di api.view().
-// Contratto: docs/printloop/05_API.md.
+// PrintLoop API types: they mirror src/printloop/models.py and the fields derived by api.view().
+// Contract: docs/printloop/05_API.md.
 
 export type DefectClass =
   | 'under_extrusion'
@@ -18,7 +18,26 @@ export type CaseState =
   'awaiting_photos' | 'ready' | 'needs_info' | 'diagnosed' | 'awaiting_approval' | 'escalated' | 'done'
 
 export type Action =
-  'upload_photos' | 'diagnose' | 'diagnose_operator' | 'propose' | 'approve' | 'reject' | 'edit' | 'stop'
+  | 'upload_photos'
+  | 'diagnose'
+  | 'diagnose_operator'
+  | 'propose'
+  | 'approve'
+  | 'reject'
+  | 'edit'
+  | 'stop'
+  | 'confirm_success'
+  | 'rewind'
+
+/** Steps of one iteration: rewinding to a step puts the case back in the state that waits for it. */
+export type RewindStep = 'photos' | 'diagnosis' | 'patch' | 'approval'
+
+export interface RewindTarget {
+  iteration: number
+  step: RewindStep
+  /** What going back throws away, in plain words (files are archived in the case folder, not deleted). */
+  discards: string[]
+}
 
 export type Outcome = 'fixed' | 'no_defect' | 'escalated' | 'stopped'
 export type Source = 'llm' | 'rules' | 'operator'
@@ -124,6 +143,12 @@ export interface Decision {
   at: string
 }
 
+export interface Confirmation {
+  note: string
+  actor: string
+  at: string
+}
+
 export interface RejectedProposal {
   proposal: Proposal
   reason: string
@@ -148,6 +173,7 @@ export interface Iteration {
   slice: { print_time_s?: number | null; slice_elapsed_s?: number } | null
   decision: Decision | null
   rejected: RejectedProposal[]
+  confirmed: Confirmation | null
 }
 
 export interface EditOption {
@@ -166,8 +192,8 @@ export interface Baseline {
   print_time_s?: number | null
   filament_g?: number
   sliced_3mf?: string
-  slicer?: string // slicer che ha creato il progetto, usato per tutti gli slicing del caso
-  notes?: string[] // es. ripiego su un altro slicer
+  slicer?: string // slicer that created the project, used for every slice of the case
+  notes?: string[] // e.g. fallback to another slicer
 }
 
 export interface Case {
@@ -186,6 +212,8 @@ export interface Case {
   outcome: Outcome | null
   message: string
   allowed_actions: Action[]
+  /** Earlier steps the case can go back to, oldest first: the last one is "one step back". */
+  rewind_targets: RewindTarget[]
   llm_mode: 'llm' | 'offline'
   latest_print_file_url: string | null
   edit_options: EditOption[]
@@ -201,6 +229,7 @@ export interface CaseSummary {
   material: string | null
   updated_at: string
   defect: DefectClass | null
+  allowed_actions: Action[]
 }
 
 export interface Health {

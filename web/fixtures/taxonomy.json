@@ -2,13 +2,13 @@
   "defects": [
     {
       "id": "under_extrusion",
-      "label": "Sotto-estrusione",
+      "label": "Under-extrusion",
       "description": "Gaps between lines, thin or missing walls, porous or weak top surfaces, visible infill through skin.",
       "fixable": true
     },
     {
       "id": "over_extrusion",
-      "label": "Sovra-estrusione",
+      "label": "Over-extrusion",
       "description": "Blobby, bulging or rough walls, ridges on top surfaces, dimensions larger than intended, elephant-like bulges on walls.",
       "fixable": true
     },
@@ -20,25 +20,25 @@
     },
     {
       "id": "bridge_sagging",
-      "label": "Bridge che cedono",
+      "label": "Sagging bridges",
       "description": "Lines spanning unsupported gaps droop, sag, break or curl downwards under a bridge.",
       "fixable": true
     },
     {
       "id": "overhang_curling",
-      "label": "Overhang arricciati",
+      "label": "Curling overhangs",
       "description": "Edges of angled overhangs curl upwards, look rough or drooped on the underside.",
       "fixable": true
     },
     {
       "id": "warping",
-      "label": "Warping / distacco",
+      "label": "Warping / detachment",
       "description": "Corners or edges lifted from the bed, bottom not flat, part detached during the print.",
       "fixable": true
     },
     {
       "id": "first_layer",
-      "label": "Primo layer",
+      "label": "First layer",
       "description": "First layer problems: lines not fused, gaps, rough or squished bottom, poor adhesion, uneven bottom surface.",
       "fixable": true
     },
@@ -50,27 +50,27 @@
     },
     {
       "id": "spaghetti",
-      "label": "Spaghetti / stampa persa",
+      "label": "Spaghetti / failed print",
       "description": "A tangle of loose extruded filament instead of the part; the print failed and continued in mid-air.",
       "fixable": false
     },
     {
       "id": "none",
-      "label": "Nessun difetto",
+      "label": "No defect",
       "description": "The part looks correct; no defect of the classes above is visible.",
       "fixable": false
     },
     {
       "id": "other",
-      "label": "Fuori tassonomia",
+      "label": "Outside the taxonomy",
       "description": "A defect is visible but it does not fit any class above.",
       "fixable": false
     }
   ],
   "severity": {
-    "0": "assente",
-    "1": "lieve, solo estetico: pezzo accettabile",
-    "2": "evidente: il pezzo funziona ma va rifatto per un cliente",
-    "3": "grave: pezzo da scartare"
+    "0": "absent",
+    "1": "minor, cosmetic only: part acceptable",
+    "2": "clearly visible: the part works but would be reprinted for a customer",
+    "3": "severe: the part must be discarded"
   }
 }

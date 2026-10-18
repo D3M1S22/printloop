@@ -1,9 +1,9 @@
-"""Validatore deterministico delle patch (docs/printloop/03_ARCHITECTURE.md §4.3).
+"""Deterministic patch validator (docs/printloop/03_ARCHITECTURE.md §4.3).
 
-Regole: chiavi tra i candidati della KB per il difetto, al massimo LOOP.max_changes modifiche, direzione
-della KB, passo ≤ 2× quello della KB, valori dentro i limiti (anche del materiale), nessuna oscillazione
-rispetto alle iterazioni già approvate. Le scelte dell'operatore possono superare passo, direzione e
-oscillazione (con avviso), mai i limiti.
+Rules: keys among the KB candidates for the defect, at most LOOP.max_changes changes, KB direction,
+step ≤ 2× the KB step, values within bounds (including material bounds), no oscillation against
+already approved iterations. Operator choices may exceed step, direction and oscillation (with a
+warning), never the bounds.
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ EPS = 1e-9
 
 
 def real_changes(change: Change, settings: dict) -> dict[str, float | str]:
-    """Traduce una modifica della KB nelle chiavi reali del progetto."""
+    """Translates a KB change into the real project keys."""
     if change.companion:
         return {change.key: change.after}
     meta = kb.param(change.key)
@@ -33,13 +33,13 @@ def _companions(change: Change, settings: dict) -> list[Change]:
         current = project.get_text(settings, key)
         if current in rule["when"]:
             out.append(Change(key=key, before=current, after=rule["set"], companion=True,
-                              reason=f"necessario perché {change.key} abbia effetto", label=key))
+                              reason=f"required for {change.key} to take effect", label=key))
     return out
 
 
 def validate(changes: list[Change], defect: str, settings: dict, history: list[Change] | None = None,
              operator: bool = False) -> tuple[Validation, list[Change]]:
-    """Controlla la patch e restituisce le modifiche normalizzate (valori prima, chiavi reali, companion)."""
+    """Checks the patch and returns the normalized changes (before values, real keys, companions)."""
     errors: list[str] = []
     warnings: list[str] = []
     history = history or []
@@ -47,11 +47,11 @@ def validate(changes: list[Change], defect: str, settings: dict, history: list[C
     primary = [c for c in changes if not c.companion]
 
     if not primary:
-        errors.append("la patch non contiene modifiche")
+        errors.append("the patch contains no changes")
     if len(primary) > LOOP.max_changes:
-        errors.append(f"al massimo {LOOP.max_changes} parametri per iterazione (proposti {len(primary)})")
+        errors.append(f"at most {LOOP.max_changes} parameters per iteration ({len(primary)} proposed)")
     if len({c.key for c in primary}) != len(primary):
-        errors.append("la stessa chiave compare più volte")
+        errors.append("the same key appears more than once")
 
     normalized: list[Change] = []
     for change in primary:
@@ -59,18 +59,18 @@ def validate(changes: list[Change], defect: str, settings: dict, history: list[C
         try:
             meta = kb.param(key)
         except KeyError:
-            errors.append(f"{key}: parametro fuori dalla knowledge base")
+            errors.append(f"{key}: parameter not in the knowledge base")
             continue
         cand = allowed.get(key)
         if cand is None and not operator:
-            errors.append(f"{key}: non è un candidato per '{defect}'")
+            errors.append(f"{key}: not a candidate for '{defect}'")
             continue
         if not isinstance(change.after, (int, float)):
-            errors.append(f"{key}: valore non numerico")
+            errors.append(f"{key}: non-numeric value")
             continue
         before = project.current_value(settings, key, meta)
         if before is None:
-            errors.append(f"{key}: chiave assente o non numerica nel progetto")
+            errors.append(f"{key}: key missing or non-numeric in the project")
             continue
         step = float(meta["step"])
         after = round(float(change.after), 3)
@@ -78,23 +78,23 @@ def validate(changes: list[Change], defect: str, settings: dict, history: list[C
         lo, hi = kb.bounds(key, settings)
 
         if abs(delta) < EPS:
-            errors.append(f"{key}: il valore proposto è uguale a quello attuale ({before:g})")
+            errors.append(f"{key}: the proposed value equals the current one ({before:g})")
         if after < lo - EPS or after > hi + EPS:
-            errors.append(f"{key}: {after:g} fuori dai limiti [{lo:g}, {hi:g}] {meta['unit']}")
+            errors.append(f"{key}: {after:g} out of bounds [{lo:g}, {hi:g}] {meta['unit']}")
         if cand is not None and delta * cand.sign < 0:
             (warnings if operator else errors).append(
-                f"{key}: direzione opposta a quella prevista per '{defect}' ({cand.direction})")
+                f"{key}: opposite direction to the one expected for '{defect}' ({cand.direction})")
         outside = before < lo - EPS or before > hi + EPS
         if outside and abs(after - min(hi, max(lo, before))) < EPS:
-            warnings.append(f"{key}: il valore attuale {before:g} è fuori dai limiti, riportato a {after:g}")
+            warnings.append(f"{key}: the current value {before:g} is out of bounds, brought back to {after:g}")
         elif abs(delta) > 2 * step + EPS:
             (warnings if operator else errors).append(
-                f"{key}: variazione {delta:+g} oltre il passo massimo ±{2 * step:g} {meta['unit']}")
+                f"{key}: change {delta:+g} beyond the maximum step ±{2 * step:g} {meta['unit']}")
         for past in history:
             if past.key == key and isinstance(past.after, (int, float)) and isinstance(past.before, (int, float)):
                 if (past.after - past.before) * delta < 0:
                     (warnings if operator else errors).append(
-                        f"{key}: oscillazione, un'iterazione precedente l'ha portato da {past.before:g} a {past.after:g}")
+                        f"{key}: oscillation, a previous iteration moved it from {past.before:g} to {past.after:g}")
 
         norm = change.model_copy(update={"before": before, "after": after, "label": meta["label"], "unit": meta["unit"]})
         norm.real = real_changes(norm, settings)
@@ -104,7 +104,7 @@ def validate(changes: list[Change], defect: str, settings: dict, history: list[C
     if not errors:
         for key in {k for c in normalized for k in c.real}:
             if key not in settings:
-                errors.append(f"{key}: chiave assente nel progetto")
+                errors.append(f"{key}: key missing in the project")
     return Validation(ok=not errors, errors=errors, warnings=warnings), normalized
 
 

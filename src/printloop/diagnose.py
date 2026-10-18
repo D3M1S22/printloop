@@ -1,7 +1,7 @@
-"""Diagnosi del pezzo: Gemma 4 sulle foto (JSON schema) oppure dichiarazione dell'operatore.
+"""Diagnosis of the part: Gemma 4 on the photos (JSON schema) or the operator's statement.
 
-Il modello classifica in una tassonomia chiusa, assegna la severità con la rubrica fissa e cita le
-foto come evidenza. Non propone parametri: quello è compito di propose.py, vincolato dalla KB.
+The model classifies into a closed taxonomy, assigns severity with the fixed rubric and cites the
+photos as evidence. It does not propose parameters: that is propose.py's job, constrained by the KB.
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ Rules:
 - primary: the defect that most needs fixing; "none" if the part is fine.
 - Do not guess causes or slicer settings. Do not invent defects that are not visible.
 - If the photos are too blurry, too dark or do not show the relevant area, set needs_more_info=true and
-  write question_for_operator in Italian (what photo to take). Otherwise question_for_operator is "".
+  write question_for_operator in English (what photo to take). Otherwise question_for_operator is "".
 - Answer with JSON only."""
 
 SCHEMA = {
@@ -66,7 +66,7 @@ SCHEMA = {
 def _context(printer: str | None, material: str | None, note: str, previous: Diagnosis | None) -> str:
     lines = [f"Printer: {printer or 'unknown'}", f"Material: {material or 'unknown'}"]
     if note:
-        lines.append(f"Operator note (may be in Italian): {note}")
+        lines.append(f"Operator note: {note}")
     if previous is not None:
         lines.append(f"This is a reprint after a preset patch. Previous diagnosis: {previous.primary} "
                      f"(severity {previous.severity}). Judge the new photos on their own.")
@@ -74,7 +74,7 @@ def _context(printer: str | None, material: str | None, note: str, previous: Dia
 
 
 def sanitize(raw: dict) -> dict:
-    """Normalizza l'output del modello: classi valide, severità e confidenza nei range, primary coerente."""
+    """Normalizes the model output: valid classes, severity and confidence in range, consistent primary."""
     findings = []
     for f in raw.get("findings") or []:
         if f.get("defect") not in DEFECT_CLASSES:
@@ -99,7 +99,7 @@ def sanitize(raw: dict) -> dict:
 def diagnose_llm(photos: list[Path], printer: str | None = None, material: str | None = None, note: str = "",
                  previous: Diagnosis | None = None) -> Diagnosis:
     if not photos:
-        raise ValueError("servono da 1 a 4 foto del pezzo")
+        raise ValueError("1 to 4 photos of the part are required")
     content: list[dict] = [{"type": "text", "text": _context(printer, material, note, previous)}]
     for photo in photos:
         content.append({"type": "text", "text": f"Photo: {photo.name}"})
@@ -110,10 +110,10 @@ def diagnose_llm(photos: list[Path], printer: str | None = None, material: str |
 
 
 def diagnose_operator(defect: str, severity: int, note: str = "", photos: list[str] | None = None) -> Diagnosis:
-    """Diagnosi dichiarata dall'operatore: percorso offline e correzione umana della diagnosi del modello."""
+    """Diagnosis stated by the operator: offline path and human correction of the model's diagnosis."""
     if defect not in DEFECT_CLASSES:
-        raise ValueError(f"difetto sconosciuto: {defect}")
-    evidence = [Evidence(photo=p, description="indicato dall'operatore") for p in (photos or [])]
+        raise ValueError(f"unknown defect: {defect}")
+    evidence = [Evidence(photo=p, description="stated by the operator") for p in (photos or [])]
     severity = 0 if defect == "none" else severity
     finding = Finding(defect=defect, severity=severity, confidence=1.0, evidence=evidence, location="")
     return Diagnosis(findings=[finding], primary=defect, source="operator", note=note)

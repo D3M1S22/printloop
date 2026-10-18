@@ -1,4 +1,4 @@
-"""Modelli dati condivisi tra pipeline, API e audit (contratti in docs/printloop/05_API.md)."""
+"""Data models shared by pipeline, API and audit (contracts in docs/printloop/05_API.md)."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -58,12 +58,12 @@ class Diagnosis(BaseModel):
 
 
 class Change(BaseModel):
-    key: str                                   # chiave della KB (o reale, per i companion)
+    key: str                                   # KB key (or real key, for companions)
     before: float | str | None = None
     after: float | str
     reason: str = ""
-    real: dict[str, float | str] = {}          # chiavi reali del progetto -> valore scritto
-    companion: bool = False                    # aggiunta dal validatore (es. brim_type)
+    real: dict[str, float | str] = {}          # real project keys -> value written
+    companion: bool = False                    # added by the validator (e.g. brim_type)
     label: str = ""
     unit: str = ""
 
@@ -96,7 +96,7 @@ class Validation(BaseModel):
 class Check(BaseModel):
     check: str
     key: str | None = None
-    target: str = ""            # feature o chiave di configurazione controllata
+    target: str = ""            # feature or config key being checked
     before: float | None = None
     after: float | None = None
     expected: str = ""
@@ -121,10 +121,17 @@ class Decision(BaseModel):
     at: str = Field(default_factory=now_iso)
 
 
+class Confirmation(BaseModel):
+    """The operator confirmed that the reprint is good, closing the case."""
+    note: str = ""
+    actor: str = "operator"
+    at: str = Field(default_factory=now_iso)
+
+
 class Iteration(BaseModel):
     n: int
-    project: str                     # 3MF stampato in questa iterazione (relativo alla cartella del caso)
-    source_gcode: str                # G-code di quella stampa: il "prima" del pre-flight
+    project: str                     # 3MF printed in this iteration (relative to the case folder)
+    source_gcode: str                # G-code of that print: the "before" of the pre-flight
     photos: list[str] = []
     note: str = ""
     diagnosis: Diagnosis | None = None
@@ -132,10 +139,11 @@ class Iteration(BaseModel):
     validation: Validation | None = None
     preflight: Preflight | None = None
     patched_project: str | None = None
-    sliced_3mf: str | None = None    # 3MF con G-code da stampare se la patch è approvata
+    sliced_3mf: str | None = None    # 3MF with G-code to print if the patch is approved
     slice: dict[str, Any] | None = None
     decision: Decision | None = None
-    rejected: list[dict[str, Any]] = []  # proposte rifiutate dall'operatore, con motivo
+    rejected: list[dict[str, Any]] = []  # proposals rejected by the operator, with the reason
+    confirmed: Confirmation | None = None
 
 
 class Case(BaseModel):

@@ -1,99 +1,102 @@
-# 04. Decisione, spike, piano e rischi
+# 04. Decision, spikes, plan and risks
 
-> Situazione al **16/10/2026 sera**: code freeze sabato 17/10 23:59, submission **domenica 18/10 ore 12:00**, team di 2 (backend/ML e frontend React/Vite), sabato e domenica on-site a Roma.
+> Situation on the **evening of 16 Oct 2026**: code freeze Saturday 17/10 23:59, submission **Sunday 18/10 at 12:00**, team of 2 (backend/ML and React/Vite frontend), on site in Rome on Saturday and Sunday.
 >
-> **Aggiornamento 17/10:** il team ha scelto di procedere con il Modo 2 di PrintLoop (Modo 1 "se c'è tempo"). S2 superato con BambuStudio; pipeline implementata. Stato e prossimi passi: [06_IMPLEMENTATION_STATUS.md](06_IMPLEMENTATION_STATUS.md).
+> **Update 17/10:** the team chose to go ahead with PrintLoop Mode 2 (Mode 1 "if there is time"). S2 passed with BambuStudio; pipeline implemented. Status and next steps: [06_IMPLEMENTATION_STATUS.md](06_IMPLEMENTATION_STATUS.md).
 
 ---
 
-## 1. PrintLoop o MarginSwarm
+## 1. PrintLoop or MarginSwarm
 
-| Criterio | MarginSwarm (branch `MarginSwarm`) | PrintLoop (questo branch) |
+| Criterion | MarginSwarm (`MarginSwarm` branch) | PrintLoop (this branch) |
 | :-- | :-- | :-- |
-| Stato | Backend funzionante offline, 11 test, backtest e valutazioni versionati, contratto API e fixture per il frontend | Solo documentazione |
-| Dipendenze fisiche | Nessuna | Stampante, filamento, **~3,5 h di macchina** per il test set, foto |
-| Dipendenze esterne | Droplet MI300X (Gemma + Monte Carlo) | Droplet MI300X (Gemma vision). OrcaSlicer CLI headless |
-| Evidenza AMD | Inferenza LLM + Monte Carlo PyTorch su GPU | Inferenza multimodale (+ fine-tuning CAXTON se avanza tempo) |
-| Premio Google | Gemma | Gemma |
-| Impatto in demo | Dashboard e numeri | Oggetti fisici prima e dopo, molto tangibile |
-| Concorrenza nella track | Track 3 | Track 1, dove molti progetti sono chatbot RAG sui manuali |
-| Rischio sulla consegna | Basso / medio | **Alto**: tutto da costruire in ~1 giorno e mezzo |
+| Status | Backend working offline, 11 tests, versioned backtests and evaluations, API contract and fixtures for the frontend | Documentation only |
+| Physical dependencies | None | Printer, filament, **~3.5 h of machine time** for the test set, photos |
+| External dependencies | MI300X droplet (Gemma + Monte Carlo) | MI300X droplet (Gemma vision). Headless OrcaSlicer CLI |
+| AMD evidence | LLM inference + PyTorch Monte Carlo on GPU | Multimodal inference (+ CAXTON fine-tuning if time allows) |
+| Google prize | Gemma | Gemma |
+| Demo impact | Dashboard and numbers | Physical objects before and after, very tangible |
+| Competition in the track | Track 3 | Track 1, where many projects are RAG chatbots over manuals |
+| Delivery risk | Low / medium | **High**: everything to build in ~1.5 days |
 
-**Valutazione:** con i dati di oggi MarginSwarm è la scelta a rischio più basso. PrintLoop vale il cambio solo se gli spike S1–S3 riescono **entro sabato alle 10:00** e la stampante è disponibile per almeno 4 ore entro sabato sera. La decisione resta del team. Se non si cambia, questo branch resta come documentazione di un concept verificato.
+**Assessment:** with today's data MarginSwarm is the lower-risk choice. PrintLoop is worth the switch only if spikes S1–S3 succeed **by Saturday 10:00** and the printer is available for at least 4 hours by Saturday evening. The decision is the team's. If we do not switch, this branch stays as the documentation of a verified concept.
 
 ---
 
-## 2. Spike (con timebox e criterio go/no-go)
+## 2. Spikes (with timebox and go/no-go criterion)
 
-| ID | Spike | Timebox | Go se… | Se fallisce |
+| ID | Spike | Timebox | Go if… | If it fails |
 | :-- | :-- | :-- | :-- | :-- |
-| S1 | **Gemma 4 vision su AMD**: 26B-A4B su vLLM-ROCm con `--limit-mm-per-prompt`, JSON schema, 5 foto di difetti (casi storici o C1/C3/C5) | 1,5 h (dopo i crediti) | classe giusta su ≥ 3/5 e JSON sempre valido | provare 31B o token visivi 560/1120. Fallback Token Factory vision (perde il premio Google) |
-| S2 | **OrcaSlicer CLI headless**: `--export-settings` su un preset con `inherits`, `--slice 0 --export-3mf`, estrazione del G-code, lettura dei commenti di feature, override di una chiave visibile nel G-code | 1 h | tutto da CLI senza GUI, chiavi della KB confermate | `xvfb-run`; altrimenti export manuale dal GUI (il pre-flight resta, la demo è meno fluida) |
-| S3 | **P1S**: firmware, LAN-only + Developer Mode, lettura `push_status` via MQTT, un frame dalla porta 6000, misura degli fps | 1 h | stato e frame letti | Modo 1 tagliato: **non blocca l'MVP** |
-| S4 | **Stampe**: avviare subito C0, C1, C3, C5 (la stampante lavora mentre si scrive codice) | parallelo | 4 pezzi con difetto visibile | rivedere le variazioni indotte (più marcate) |
-| S5 | **Casi storici**: recuperare preset prima/dopo e foto dei casi risolti con Antigravity | 30 min | ≥ 2 casi completi | si usa solo il test set indotto |
+| S1 | **Gemma 4 vision on AMD**: 26B-A4B on vLLM-ROCm with `--limit-mm-per-prompt`, JSON schema, 5 defect photos (past cases or C1/C3/C5) | 1.5 h (after the credits) | right class on ≥ 3/5 and always valid JSON | try 31B or 560/1120 visual tokens. Token Factory vision fallback (loses the Google prize) |
+| S2 | **Headless OrcaSlicer CLI**: `--export-settings` on a preset with `inherits`, `--slice 0 --export-3mf`, G-code extraction, reading the feature comments, override of a key visible in the G-code | 1 h | all from the CLI without a GUI, KB keys confirmed | `xvfb-run`; otherwise manual export from the GUI (the pre-flight stays, the demo is less smooth) |
+| S3 | **P1S**: firmware, LAN-only + Developer Mode, reading `push_status` over MQTT, one frame from port 6000, fps measurement | 1 h | status and frame read | Mode 1 cut: **does not block the MVP** |
+| S4 | **Prints**: start C0, C1, C3, C5 right away (the printer works while code is being written) | parallel | 4 parts with a visible defect | revise the induced changes (more marked) |
+| S5 | **Past cases**: retrieve presets before/after and photos of the cases solved with Antigravity | 30 min | ≥ 2 complete cases | use only the induced test set |
 
 ---
 
-## 3. Piano (se si va con PrintLoop)
+## 3. Plan (if we go with PrintLoop)
 
-| Quando | Backend / ML | Frontend | Stampante |
+| When | Backend / ML | Frontend | Printer |
 | :-- | :-- | :-- | :-- |
-| Ven sera | S2, S5; S1 appena c'è il droplet | — | S4: C0, C1, C3, C5 |
-| Sab 10:00 | **Go/no-go** sugli spike | | |
-| Sab mattina | parser G-code + pre-flight + test; KB + validatore | UI caso: upload, diagnosi, diff del preset, approvazione (su fixture) | C2, C4, C6, C7 + foto |
-| Sab pomeriggio | diagnosi Gemma + proposta + API; primi casi end-to-end | integrazione con l'API reale | ristampe con patch (chiusura del loop) |
-| Sab sera | `eval.py` sul test set, benchmark AMD (26B vs 31B, token visivi, concorrenza), primo take del video | rifinitura UI, schermata risultati | — |
-| **Sab 23:59** | **code freeze** | | |
-| Dom 10:00–12:00 | README in inglese, sezione AMD Evidence, deck, submission | cover, video finale | — |
+| Fri evening | S2, S5; S1 as soon as the droplet is up | — | S4: C0, C1, C3, C5 |
+| Sat 10:00 | **Go/no-go** on the spikes | | |
+| Sat morning | G-code parser + pre-flight + tests; KB + validator | Case UI: upload, diagnosis, preset diff, approval (on fixtures) | C2, C4, C6, C7 + photos |
+| Sat afternoon | Gemma diagnosis + proposal + API; first end-to-end cases | integration with the real API | patched reprints (closing the loop) |
+| Sat evening | `eval.py` on the test set, AMD benchmark (26B vs 31B, visual tokens, concurrency), first take of the video | UI polish, results screen | — |
+| **Sat 23:59** | **code freeze** | | |
+| Sun 10:00–12:00 | English README, AMD Evidence section, deck, submission | cover, final video | — |
 
-### Linee di taglio
-- **P0 (senza questo non si consegna):** Modo 2 completo fino all'export del preset; pre-flight funzionante; ≥ 6 casi valutati, controllo negativo incluso; benchmark misurato su MI300X; UI di approvazione.
-- **P1:** loop chiuso con ristampa su ≥ 2 casi; confronto 26B contro 31B; casi storici.
-- **P2:** Modo 1 live con pausa; ristampa via MQTT; fine-tuning CAXTON su ROCm.
+### Cut lines
+- **P0 (no submission without it):** full Mode 2 up to the preset export; working pre-flight; ≥ 6 evaluated cases, negative control included; benchmark measured on the MI300X; approval UI.
+- **P1:** closed loop with a reprint on ≥ 2 cases; 26B vs 31B comparison; past cases.
+- **P2:** live Mode 1 with pause; reprint over MQTT; CAXTON fine-tuning on ROCm.
 
 ---
 
-## 4. Registro delle decisioni (proposte)
+## 4. Decision log
 
-| ID | Decisione | Alternative | Motivo | Stato |
+| ID | Decision | Alternatives | Reason | Status |
 | :-- | :-- | :-- | :-- | :-- |
-| P-01 | **Modo 2 (post-stampa) come prodotto**, Modo 1 stretch | Modo 1 come trigger centrale | camera P1S a ~0,5 fps; spaghetti detection già nel firmware | ✅ 17/10 |
-| P-02 | **Immagini, non video**, come input a Gemma | video con frame | limite di frame non documentato; foto più nitide | proposta |
-| P-03 | **Gemma 4 26B-A4B** default, 31B se la qualità non basta | Qwen-VL, Token Factory | premio Google; MI300X lo regge con margine | proposta |
-| P-04 | Solo parametri con **firma nel G-code** nella KB | KB libera | verificabilità | proposta |
-| P-05 | Patch con **≤ 2 chiavi**, niente oscillazioni, K = 3 | patch libere | causalità leggibile, convergenza | proposta |
-| P-06 | **Input = progetto 3MF**; patch su `Metadata/project_settings.config` di una copia | `--export-settings` + preset JSON separati | il progetto contiene già le impostazioni effettive; le impostazioni esportate da un progetto non si ricaricano come preset (`from project unsupported`) | ✅ S2 |
-| P-10 | Slicer **BambuStudio o OrcaSlicer** (stessa CLI) | solo OrcaSlicer | OrcaSlicer non installato sulla macchina di sviluppo, BambuStudio sì | ✅ |
-| P-11 | Proposta a regole come default offline; Gemma sceglie tra gli **stessi** candidati filtrati e passa dallo stesso validatore | Gemma libero | verificabilità, funziona senza endpoint | ✅ |
-| P-07 | **Solo Developer Mode** per la stampante, mai bypass | — | regole Bambu ed etica | ✅ |
-| P-08 | API FastAPI su **8788**, UI Vite su 5174 | 8787 | 8787 è usata da MarginSwarm, che gira in parallelo sulla stessa macchina | ✅ 17/10 |
-| P-09 | CAXTON citato come **prior art**, non nascosto | — | onestà verso i giudici | ✅ |
+| P-01 | **Mode 2 (after printing) as the product**, Mode 1 stretch | Mode 1 as the central trigger | P1S camera at ~0.5 fps; spaghetti detection already in the firmware | ✅ 17/10 |
+| P-02 | **Images, not video**, as Gemma's input | video frames | frame limit not documented; photos are sharper | proposed |
+| P-03 | **Gemma 4 26B-A4B** by default, 31B if quality is not enough | Qwen-VL, Token Factory | Google prize; the MI300X runs it with headroom | proposed |
+| P-04 | Only parameters with a **signature in the G-code** in the KB | free KB | verifiability | proposed |
+| P-05 | Patches with **≤ 2 keys**, no oscillation, K = 3 | free patches | readable causality, convergence | proposed |
+| P-06 | **Input = 3MF project**; patch on `Metadata/project_settings.config` of a copy | `--export-settings` + separate preset JSONs | the project already holds the effective settings; settings exported from a project do not reload as a preset (`from project unsupported`) | ✅ S2 |
+| P-07 | **Developer Mode only** for the printer, never a bypass | — | Bambu rules and ethics | ✅ |
+| P-08 | FastAPI API on **8788**, Vite UI on 5174 | 8787 | 8787 is used by MarginSwarm, which runs in parallel on the same machine | ✅ 17/10 |
+| P-09 | CAXTON cited as **prior art**, not hidden | — | honesty towards the judges | ✅ |
+| P-10 | Slicer **BambuStudio or OrcaSlicer** (same CLI) | OrcaSlicer only | OrcaSlicer was not installed on the development machine, BambuStudio was | ✅ |
+| P-11 | Rule-based proposal as the offline default; Gemma chooses among the **same** filtered candidates and goes through the same validator | free Gemma | verifiability, works without an endpoint | ✅ |
+| P-12 | A good reprint is closed with an explicit **"Reprint OK"** action (also from the case list), not by picking "No defect" in the diagnosis menu | "No defect" diagnosis + save | one click instead of three; "No defect" is not a defect to choose | ✅ 18/10 |
+| P-13 | The operator can **rewind** to any earlier step or iteration; discarded files are **archived** in `discarded/`, never deleted | no going back; deleting the discarded files | mistakes happen (wrong diagnosis, approved too early); photos of physical prints cannot be recreated | ✅ 18/10 |
+| P-14 | Project, UI and docs in **English** | Italian | the submission and the judges are international | ✅ 18/10 |
 
 ---
 
-## 5. Rischi
+## 5. Risks
 
-| # | Rischio | Prob. | Impatto | Mitigazione |
+| # | Risk | Prob. | Impact | Mitigation |
 | :-- | :-- | :-- | :-- | :-- |
-| R1 | **Tempo**: un progetto nuovo in ~1,5 giorni | A | **Alto** | spike con timebox, go/no-go alle 10:00, linee di taglio |
-| R2 | Stampante non accessibile da Roma sabato/domenica | ? | **Alto** | stampare il test set **stanotte e sabato mattina**; in demo foto e pezzi fisici portati in sede, niente stampa live |
-| R3 | Gemma non distingue cause diverse con lo stesso sintomo (C1/C2, C5/C6) | M | Medio | il loop prova il secondo candidato alla ristampa; dichiararlo nei limiti |
-| R4 | Gemma 4 vision troppo debole su foto di difetti fini | M | Alto | token visivi 560/1120, foto macro, 31B; altrimenti tassonomia ridotta |
-| R5 | OrcaSlicer CLI fragile su Linux (display, flag cambiate tra versioni) | M | Medio | versione fissata, `xvfb-run`, fallback GUI |
-| R6 | Crediti/droplet MI300X (stesso rischio di MarginSwarm) | M | **Alto** | attivarli subito; fallback Token Factory vision |
-| R7 | Difetti indotti poco visibili | M | Medio | variazioni più marcate, pezzi progettati per mostrare il difetto |
-| R8 | Endpoint vLLM pubblico | M | Alto | `--api-key` sempre |
-| R9 | Access code della stampante committato | B | Alto | `.env` in `.gitignore`, `.env.example` senza valori |
-| R10 | Il team si divide tra due progetti | M | Alto | una decisione netta alle 10:00 di sabato, niente lavoro in parallelo su entrambi |
+| R1 | **Time**: a new project in ~1.5 days | H | **High** | timeboxed spikes, go/no-go at 10:00, cut lines |
+| R2 | Printer not reachable from Rome on Saturday/Sunday | ? | **High** | print the test set **tonight and Saturday morning**; in the demo, photos and physical parts brought on site, no live printing |
+| R3 | Gemma cannot tell apart different causes with the same symptom (C1/C2, C5/C6) | M | Medium | the loop tries the second candidate on the reprint; declare it in the limits |
+| R4 | Gemma 4 vision too weak on photos of fine defects | M | High | 560/1120 visual tokens, macro photos, 31B; otherwise a reduced taxonomy |
+| R5 | OrcaSlicer CLI fragile on Linux (display, flags changed between versions) | M | Medium | pinned version, `xvfb-run`, GUI fallback |
+| R6 | MI300X credits/droplet (same risk as MarginSwarm) | M | **High** | activate them right away; Token Factory vision fallback |
+| R7 | Induced defects barely visible | M | Medium | more marked changes, parts designed to show the defect |
+| R8 | Public vLLM endpoint | M | High | always `--api-key` |
+| R9 | Printer access code committed | L | High | `.env` in `.gitignore`, `.env.example` without values |
+| R10 | The team splits between two projects | M | High | a clear decision at 10:00 on Saturday, no parallel work on both |
 
 ---
 
-## 6. Domande aperte
+## 6. Open questions
 
-1. **Dove sarà la stampante** sabato e domenica? Chi lancia le stampe mentre il team è a Roma?
-2. Firmware attuale della P1S (Developer Mode da 01.08.02.00)?
-3. Materiale del test set (PLA?) e quantità disponibile.
-4. Esistono ancora preset e foto dei casi risolti con Antigravity?
-5. Versione di OrcaSlicer installata e sistema operativo su cui gira la CLI.
-6. I crediti del droplet bastano per entrambi i progetti, se si fanno gli spike di PrintLoop mentre MarginSwarm resta il piano A?
+1. **Where will the printer be** on Saturday and Sunday? Who starts the prints while the team is in Rome?
+2. Current P1S firmware (Developer Mode from 01.08.02.00)?
+3. Test set material (PLA?) and available quantity.
+4. Do the presets and photos of the cases solved with Antigravity still exist?
+5. Installed OrcaSlicer version and the operating system the CLI runs on.
+6. Are the droplet credits enough for both projects, if PrintLoop's spikes run while MarginSwarm stays plan A?

@@ -1,11 +1,11 @@
-"""Wrapper della CLI di BambuStudio / OrcaSlicer (stessa interfaccia: --slice, --export-3mf, --outputdir).
+"""Wrapper of the BambuStudio / OrcaSlicer CLI (same interface: --slice, --export-3mf, --outputdir).
 
-Verificato headless (nessun display) su BambuStudio 2.8.2 e OrcaSlicer 2.4.2 AppImage: con `--outputdir`
-lo slicer scrive `plate_<n>.gcode` e `result.json` accanto al 3MF esportato.
+Verified headless (no display) on BambuStudio 2.8.2 and OrcaSlicer 2.4.2 AppImage: with `--outputdir`
+the slicer writes `plate_<n>.gcode` and `result.json` next to the exported 3MF.
 
-Ogni slicer riscrive il progetto nel proprio formato: un progetto OrcaSlicer riesportato da BambuStudio
-perde le impostazioni che esistono solo in Orca (es. chamber_temperature) e non si riapre fedelmente.
-Per questo il progetto si lavora con lo slicer che l'ha creato (tag `OrcaSlicer` nei metadati del 3MF).
+Each slicer rewrites the project in its own format: an OrcaSlicer project re-exported by BambuStudio
+loses the settings that exist only in Orca (e.g. chamber_temperature) and does not reopen faithfully.
+So a project is processed with the slicer that created it (`OrcaSlicer` tag in the 3MF metadata).
 """
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ class SlicerError(RuntimeError):
 
 
 def _parse_gcode_time(gcode_path: Path) -> float | None:
-    """Ricava il tempo stimato (secondi) dall'intestazione del G-code se result.json non lo riporta."""
+    """Reads the estimated time (seconds) from the G-code header when result.json does not report it."""
     try:
         with open(gcode_path, encoding="utf-8", errors="replace") as fh:
             for _ in range(120):
@@ -51,12 +51,12 @@ def _parse_gcode_time(gcode_path: Path) -> float | None:
 
 @dataclass
 class SliceResult:
-    project: Path       # 3MF in ingresso
-    sliced_3mf: Path    # 3MF con G-code, pronto per la stampa
+    project: Path       # input 3MF
+    sliced_3mf: Path    # 3MF with G-code, ready to print
     gcode: Path
-    result: dict        # result.json dello slicer
+    result: dict        # the slicer's result.json
     elapsed_s: float
-    slicer: str = ""    # versione dello slicer usato
+    slicer: str = ""    # version of the slicer used
     notes: list[str] = field(default_factory=list)
 
     @property
@@ -80,7 +80,7 @@ def available() -> bool:
 
 
 def project_origin(project: str | Path) -> str:
-    """"orca" se il 3MF porta il tag OrcaSlicer nei metadati, altrimenti "bambu"."""
+    """"orca" if the 3MF carries the OrcaSlicer tag in its metadata, otherwise "bambu"."""
     try:
         with zipfile.ZipFile(project) as zf:
             model = zf.read("3D/3dmodel.model").decode("utf-8", errors="replace")
@@ -90,7 +90,7 @@ def project_origin(project: str | Path) -> str:
 
 
 def choose(project: str | Path) -> tuple[str, list[str]]:
-    """Slicer per il progetto: SLICER_BIN se impostato, poi quello che l'ha creato, poi l'altro con un avviso."""
+    """Slicer for the project: SLICER_BIN if set, then the one that created it, then the other one with a warning."""
     forced = slicer_bin() if _forced() else None
     if forced:
         return forced, []
@@ -100,10 +100,10 @@ def choose(project: str | Path) -> tuple[str, list[str]]:
         return bins[origin], []
     other = next(iter(bins.values()), None)
     if other is None:
-        raise SlicerError("slicer non trovato: installare OrcaSlicer o BambuStudio, oppure impostare SLICER_BIN")
+        raise SlicerError("slicer not found: install OrcaSlicer or BambuStudio, or set SLICER_BIN")
     name = {"orca": "OrcaSlicer", "bambu": "BambuStudio"}[origin]
-    return other, [f"Progetto creato con {name}, che non è installato: lo slicing usa {Path(other).name} e "
-                   "alcune impostazioni specifiche potrebbero non essere rispettate."]
+    return other, [f"Project created with {name}, which is not installed: slicing uses {Path(other).name} and "
+                   "some slicer-specific settings may not be honoured."]
 
 
 def _forced() -> bool:
@@ -116,7 +116,7 @@ def version(binary: str | None = None) -> str | None:
     if not binary:
         return None
     try:
-        # cwd temporanea: anche con --help lo slicer scrive result.json nella cartella corrente
+        # temporary cwd: even with --help the slicer writes result.json into the current folder
         with tempfile.TemporaryDirectory() as tmp:
             out = subprocess.run([binary, "--help"], capture_output=True, text=True, timeout=60, cwd=tmp)
     except (OSError, subprocess.TimeoutExpired):
@@ -128,7 +128,7 @@ def version(binary: str | None = None) -> str | None:
 
 
 def slice_project(project: str | Path, outdir: str | Path, plate: int = 1, timeout_s: int = 600) -> SliceResult:
-    """Esegue lo slicing di una piastra del progetto e restituisce G-code e 3MF stampabile."""
+    """Slices one plate of the project and returns the G-code and the printable 3MF."""
     project, outdir = Path(project), Path(outdir)
     binary, notes = choose(project)
     outdir.mkdir(parents=True, exist_ok=True)
@@ -139,7 +139,7 @@ def slice_project(project: str | Path, outdir: str | Path, plate: int = 1, timeo
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s)
     except subprocess.TimeoutExpired as exc:
-        raise SlicerError(f"slicing oltre {timeout_s} s") from exc
+        raise SlicerError(f"slicing took longer than {timeout_s} s") from exc
     elapsed = time.perf_counter() - t0
     (outdir / "slicer.log").write_text(proc.stdout + proc.stderr, encoding="utf-8", errors="replace")
 
@@ -148,6 +148,6 @@ def slice_project(project: str | Path, outdir: str | Path, plate: int = 1, timeo
     gcode = outdir / f"plate_{plate}.gcode"
     if proc.returncode != 0 or result.get("return_code", 0) != 0 or not gcode.exists():
         reason = result.get("error_string") or f"exit code {proc.returncode}"
-        raise SlicerError(f"slicing fallito: {reason} (log: {outdir / 'slicer.log'})")
+        raise SlicerError(f"slicing failed: {reason} (log: {outdir / 'slicer.log'})")
     return SliceResult(project=project, sliced_3mf=sliced, gcode=gcode, result=result, elapsed_s=elapsed,
                        slicer=version(binary) or Path(binary).name, notes=notes)

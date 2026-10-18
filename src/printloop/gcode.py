@@ -1,9 +1,9 @@
-"""Parser del G-code di BambuStudio / OrcaSlicer per il pre-flight.
+"""BambuStudio / OrcaSlicer G-code parser for the pre-flight.
 
-Ricava, per feature (`; FEATURE: Bridge`, oppure `;TYPE:` nello stile Prusa/Orca) e per layer
-(`; CHANGE_LAYER` o `;LAYER_CHANGE`): velocità, estrusione per mm, ventola di parte, setpoint di
-temperatura, eventi di retrazione (inclusa quella distribuita sul wipe) e flusso volumetrico nominale.
-Le statistiche coprono solo il corpo della stampa: lo start G-code (spurgo, livellamento) è escluso.
+Extracts, per feature (`; FEATURE: Bridge`, or `;TYPE:` in Prusa/Orca style) and per layer
+(`; CHANGE_LAYER` or `;LAYER_CHANGE`): speed, extrusion per mm, part fan, temperature setpoints,
+retraction events (including the one spread over the wipe) and nominal volumetric flow.
+Statistics cover only the body of the print: the start G-code (purge, levelling) is excluded.
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ _NON_PRINT_FEATURES = {"Custom", "Undefined", "Flush", "Prime tower", "Wipe towe
 
 
 def _weighted_median(pairs: list[tuple[float, float]]) -> float | None:
-    """Mediana di valori pesati per lunghezza: robusta ai segmenti corti."""
+    """Length-weighted median: robust to short segments."""
     pairs = [(v, w) for v, w in pairs if w > 0]
     if not pairs:
         return None
@@ -42,8 +42,8 @@ class FeatureStats:
     e_mm: float = 0.0
     time_s: float = 0.0
     moves: int = 0
-    speeds: list[tuple[float, float]] = field(default_factory=list)  # (mm/s, lunghezza)
-    fans: list[tuple[float, float]] = field(default_factory=list)    # (% ventola, lunghezza)
+    speeds: list[tuple[float, float]] = field(default_factory=list)  # (mm/s, length)
+    fans: list[tuple[float, float]] = field(default_factory=list)    # (fan %, length)
 
     def add(self, length: float, de: float, speed: float, fan_pct: float) -> None:
         self.length_mm += length
@@ -86,14 +86,14 @@ class GcodeStats:
     hotend: list[tuple[int, float]] = field(default_factory=list)  # (layer, °C), layer -1 = start G-code
     bed: list[tuple[int, float]] = field(default_factory=list)
     retractions: list[float] = field(default_factory=list)
-    volumetric: list[tuple[float, float]] = field(default_factory=list)  # (mm³/s, lunghezza)
+    volumetric: list[tuple[float, float]] = field(default_factory=list)  # (mm³/s, length)
     config: dict[str, str] = field(default_factory=dict)
     header: dict[str, str] = field(default_factory=dict)
     layers: int = 0
     filament_mm: float = 0.0
 
     def feature(self, names: list[str] | tuple[str, ...], first_layer: bool = False) -> FeatureStats:
-        """Statistiche aggregate su una o più feature."""
+        """Aggregated statistics over one or more features."""
         source = self.first_layer if first_layer else self.features
         agg = FeatureStats()
         for name in names:
@@ -102,7 +102,7 @@ class GcodeStats:
         return agg
 
     def setpoint(self, kind: str, layer: int) -> float | None:
-        """Setpoint in vigore durante `layer` (l'ultimo impostato fino a quel layer, esclusi gli spegnimenti)."""
+        """Setpoint in effect during `layer` (the last one set up to that layer, ignoring heater-off commands)."""
         series = self.hotend if kind == "hotend" else self.bed
         value = None
         for lay, temp in series:
@@ -166,7 +166,7 @@ def parse_lines(lines) -> GcodeStats:
     e_abs = 0.0
     abs_xyz, abs_e = True, False
     feed = 0.0  # mm/min
-    fan = 0.0   # % ventola di parte
+    fan = 0.0   # part fan %
     layer = -1
     feature: str | None = None
     retract_acc = 0.0
@@ -235,7 +235,7 @@ def parse_lines(lines) -> GcodeStats:
                     st.retractions.append(retract_acc)
                     retract_acc = 0.0
                 if length <= 1e-6:
-                    continue  # de-retrazione da ferma
+                    continue  # stationary de-retraction
                 st.filament_mm += de
                 if feature in _NON_PRINT_FEATURES or feature is None:
                     continue
@@ -256,7 +256,7 @@ def parse_lines(lines) -> GcodeStats:
         elif cmd == "G92" and "E" in words:
             e_abs = words["E"]
         elif cmd == "M106":
-            if words.get("P", 1) in (0, 1):  # P1 o assente = ventola di parte (P2 ausiliaria, P3 camera)
+            if words.get("P", 1) in (0, 1):  # P1 or missing = part fan (P2 auxiliary, P3 chamber)
                 fan = max(0.0, min(100.0, words.get("S", 255.0) / 255.0 * 100.0))
         elif cmd == "M107":
             fan = 0.0

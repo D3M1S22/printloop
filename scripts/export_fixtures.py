@@ -1,9 +1,10 @@
-"""Genera le fixture JSON per il frontend (web/fixtures/) da un caso reale eseguito tramite l'API.
+"""Generates the JSON fixtures for the frontend (web/fixtures/) from a real case run through the API.
 
-Scenario: C1 (bridge a velocità doppia). Diagnosi dichiarata dall'operatore (offline), patch a regole,
-rifiuto motivato, nuova proposta, modifica dell'operatore, approvazione, ristampa, chiusura.
-Secondo caso: layer shift -> escalation (non correggibile dal preset).
-Uso: `PRINTLOOP_RUNS_DIR=runs/fixtures uv run python scripts/export_fixtures.py`
+Scenario: C1 (bridges at double speed). Diagnosis stated by the operator (offline), rule-based patch,
+rejection with a reason, new proposal, operator edit, approval, reprint, closing; then a step back to the
+reprint diagnosis and the operator confirming the reprint is good.
+Second case: layer shift -> escalation (not fixable from the preset).
+Usage: `PRINTLOOP_RUNS_DIR=runs/fixtures uv run python scripts/export_fixtures.py`
 """
 from __future__ import annotations
 
@@ -49,25 +50,27 @@ def main() -> None:
         case = ok(client.post("/api/cases", files={"project": ("bridge_test.3mf", fh)}, data={"name": "Bridge test"}))
     cid = case["id"]
     dump("case_created", case)
-    dump("case_ready", ok(client.post(f"/api/cases/{cid}/photos", data={"note": "i ponti cedono al centro"},
+    dump("case_ready", ok(client.post(f"/api/cases/{cid}/photos", data={"note": "the bridges sag in the middle"},
                                       files=[("photos", ("front.jpg", photo("front"), "image/jpeg")),
                                              ("photos", ("macro.jpg", photo("macro"), "image/jpeg"))])))
     dump("case_diagnosed", ok(client.post(f"/api/cases/{cid}/diagnose",
                                           json={"mode": "operator", "defect": "bridge_sagging", "severity": 3})))
     dump("case_awaiting_approval", ok(client.post(f"/api/cases/{cid}/propose", json={"mode": "rules"})))
     dump("case_rejected", ok(client.post(f"/api/cases/{cid}/decision",
-                                         json={"approved": False, "reason": "prima provo con la ventola"})))
+                                         json={"approved": False, "reason": "trying the fan first"})))
     dump("case_awaiting_approval_2", ok(client.post(f"/api/cases/{cid}/propose", json={"mode": "rules"})))
     dump("case_edited", ok(client.post(f"/api/cases/{cid}/decision",
                                        json={"approved": False, "edits": {"bridge_flow": 0.9},
-                                             "reason": "flusso un po' più basso"})))
+                                             "reason": "slightly lower flow"})))
     dump("case_approved", ok(client.post(f"/api/cases/{cid}/decision", json={"approved": True, "reason": "ok"})))
     dump("case_iter2_ready", ok(client.post(f"/api/cases/{cid}/photos",
                                             files=[("photos", ("front.jpg", photo("reprint"), "image/jpeg"))])))
     dump("case_done", ok(client.post(f"/api/cases/{cid}/diagnose",
                                      json={"mode": "operator", "defect": "bridge_sagging", "severity": 1})))
+    ok(client.post(f"/api/cases/{cid}/rewind", json={"iteration": 2, "step": "diagnosis"}))
+    dump("case_confirmed", ok(client.post(f"/api/cases/{cid}/confirm", json={"note": "bridges are flat now"})))
     with open(cases / "C0_baseline" / "project.3mf", "rb") as fh:
-        other = ok(client.post("/api/cases", files={"project": ("staffa.3mf", fh)}, data={"name": "Staffa motore"}))
+        other = ok(client.post("/api/cases", files={"project": ("bracket.3mf", fh)}, data={"name": "Motor bracket"}))
     ok(client.post(f"/api/cases/{other['id']}/photos", files=[("photos", ("side.jpg", photo("side"), "image/jpeg"))]))
     dump("case_escalated", ok(client.post(f"/api/cases/{other['id']}/diagnose",
                                           json={"mode": "operator", "defect": "layer_shift", "severity": 3})))

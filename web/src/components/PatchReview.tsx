@@ -2,9 +2,9 @@ import type { Attempt, Check, Preflight, Proposal, Validation } from '../api/typ
 import { SOURCE_LABEL, checkLabel, delta, duration, num } from '../lib/format'
 import { Badge, Notice } from './ui'
 
-const STAGE_LABEL = { validation: 'validatore', slicing: 'slicing', preflight: 'pre-flight' } as const
+const STAGE_LABEL = { validation: 'the validator', slicing: 'slicing', preflight: 'the pre-flight' } as const
 const ICON = { pass: '✓', fail: '✕', 'n/a': '–' } as const
-const STATUS_TEXT = { pass: 'superato', fail: 'fallito', 'n/a': 'non applicabile' } as const
+const STATUS_TEXT = { pass: 'passed', fail: 'failed', 'n/a': 'not applicable' } as const
 
 export function ChangeList({ proposal }: { proposal: Proposal }) {
   return (
@@ -14,7 +14,7 @@ export function ChangeList({ proposal }: { proposal: Proposal }) {
           <span className="change__label">
             {c.label || c.key} <span className="muted mono">{c.key}</span>
           </span>
-          <span className="change__values" aria-label={`da ${num(c.before, c.unit)} a ${num(c.after, c.unit)}`}>
+          <span className="change__values" aria-label={`from ${num(c.before, c.unit)} to ${num(c.after, c.unit)}`}>
             <del>{num(c.before, c.unit)}</del> → <ins>{num(c.after, c.unit)}</ins>
           </span>
           {c.reason && <span className="change__reason">{c.reason}</span>}
@@ -47,35 +47,35 @@ export function PreflightView({ preflight }: { preflight: Preflight }) {
   return (
     <div className="stack">
       {preflight.ok ? (
-        <Notice tone="ok" title="Pre-flight superato">
-          La modifica è scritta nel G-code e ha l'effetto previsto sul percorso; nessun limite superato.
+        <Notice tone="ok" title="Pre-flight passed">
+          The change is written in the G-code and has the expected effect on the toolpath; no limit exceeded.
         </Notice>
       ) : (
-        <Notice tone="danger" title={`Pre-flight non superato (${failed} controlli)`}>
-          Per approvare comunque serve una motivazione, che resta nell'audit.
+        <Notice tone="danger" title={`Pre-flight failed (${failed} ${failed === 1 ? 'check' : 'checks'})`}>
+          Approving anyway requires a reason, which is kept in the audit log.
         </Notice>
       )}
       <div className="effects">
         <div className="effect">
-          <span>Tempo di stampa</span>
+          <span>Print time</span>
           <strong>{delta(side.print_time_s, 'time')}</strong>
           <small>{duration(side.print_time_s?.[1])}</small>
         </div>
         <div className="effect">
-          <span>Filamento</span>
+          <span>Filament</span>
           <strong>{delta(side.filament_g, 'grams')}</strong>
           <small>{num(side.filament_g?.[1] ?? null, 'g')}</small>
         </div>
         <div className="effect">
           <span>Layer</span>
           <strong>
-            {side.layers?.[0] === side.layers?.[1] ? 'invariati' : `${side.layers?.[0]} → ${side.layers?.[1]}`}
+            {side.layers?.[0] === side.layers?.[1] ? 'unchanged' : `${side.layers?.[0]} → ${side.layers?.[1]}`}
           </strong>
           <small>{side.layers?.[1] ?? '—'}</small>
         </div>
       </div>
       <div>
-        <h3 className="section-title">Verifica sul G-code</h3>
+        <h3 className="section-title">G-code verification</h3>
         <ul className="checks">
           {preflight.checks.map((c, i) => (
             <CheckItem key={`c${i}`} check={c} />
@@ -83,7 +83,7 @@ export function PreflightView({ preflight }: { preflight: Preflight }) {
         </ul>
       </div>
       <div>
-        <h3 className="section-title">Limiti</h3>
+        <h3 className="section-title">Limits</h3>
         <ul className="checks">
           {preflight.limits.map((c, i) => (
             <CheckItem key={`l${i}`} check={c} />
@@ -98,12 +98,12 @@ function Attempts({ attempts }: { attempts: Attempt[] }) {
   if (attempts.length === 0) return null
   return (
     <details className="disclosure">
-      <summary>Proposte scartate dal sistema prima di questa ({attempts.length})</summary>
+      <summary>Proposals discarded by the system before this one ({attempts.length})</summary>
       <div>
         {attempts.map((a, i) => (
           <p key={i}>
             <Badge plain>{SOURCE_LABEL[a.source]}</Badge>{' '}
-            {a.changes.map((c) => `${c.key} → ${num(c.after)}`).join(', ')}: scartata dal {STAGE_LABEL[a.stage]}.{' '}
+            {a.changes.map((c) => `${c.key} → ${num(c.after)}`).join(', ')}: discarded by {STAGE_LABEL[a.stage]}.{' '}
             <span className="muted">{a.reason}</span>
           </p>
         ))}
@@ -125,7 +125,7 @@ export function PatchReview({
     <div className="stack">
       <div className="btn-row">
         <Badge tone="accent" plain>
-          Proposta: {SOURCE_LABEL[proposal.source]}
+          Proposed by: {SOURCE_LABEL[proposal.source]}
         </Badge>
         {proposal.model && <Badge plain>{proposal.model}</Badge>}
       </div>
@@ -133,11 +133,11 @@ export function PatchReview({
       {proposal.rationale && <p className="muted">{proposal.rationale}</p>}
       {proposal.expected_effect && (
         <p>
-          <strong>Effetto atteso:</strong> {proposal.expected_effect}
+          <strong>Expected effect:</strong> {proposal.expected_effect}
         </p>
       )}
       {validation && validation.warnings.length > 0 && (
-        <Notice tone="warn" title="Avvisi del validatore">
+        <Notice tone="warn" title="Validator warnings">
           <ul className="evidence">
             {validation.warnings.map((w) => (
               <li key={w}>{w}</li>

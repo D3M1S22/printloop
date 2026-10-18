@@ -1,6 +1,6 @@
-"""API JSON per la UI React/Vite. Avvio: `uv run uvicorn printloop.api:app --port 8788 --reload`.
+"""JSON API for the React/Vite UI. Run with: `uv run uvicorn printloop.api:app --port 8788 --reload`.
 
-Contratti: docs/printloop/05_API.md. Documentazione interattiva su /docs.
+Contracts: docs/printloop/05_API.md. Interactive docs at /docs.
 """
 from __future__ import annotations
 
@@ -37,8 +37,18 @@ ACTIONS = {
 }
 
 
+def allowed_actions(case: Case) -> list[str]:
+    """Buttons the UI shows for the case. `delete` is always allowed and is not listed."""
+    actions = list(ACTIONS[case.state])
+    if loop.can_confirm(case):
+        actions.append("confirm_success")
+    if loop.rewind_targets(case):
+        actions.append("rewind")
+    return actions
+
+
 def edit_options(case: Case) -> list[dict]:
-    """Parametri che l'operatore può modificare per il difetto corrente, con limiti risolti e valore attuale."""
+    """Parameters the operator can edit for the current defect, with resolved bounds and current value."""
     it = case.current
     if case.state != "awaiting_approval" or not it.diagnosis:
         return []
@@ -57,10 +67,11 @@ def edit_options(case: Case) -> list[dict]:
 
 
 def view(case: Case) -> dict:
-    """Caso + campi derivati per la UI: azioni ammesse, URL dei file, etichette."""
+    """Case + fields derived for the UI: allowed actions, file URLs, labels, rewind targets."""
     data = case.model_dump()
     base = f"/api/cases/{case.id}/files/"
-    data["allowed_actions"] = ACTIONS[case.state]
+    data["allowed_actions"] = allowed_actions(case)
+    data["rewind_targets"] = loop.rewind_targets(case)
     data["llm_mode"] = llm.describe()["mode"]
     for it_view, it in zip(data["iterations"], case.iterations):
         it_view["photo_urls"] = [base + p for p in it.photos]
@@ -80,7 +91,7 @@ def _get(case_id: str) -> Case:
     try:
         return loop.load(case_id)
     except loop.NotFound as exc:
-        raise HTTPException(404, f"caso {case_id} non trovato") from exc
+        raise HTTPException(404, f"case {case_id} not found") from exc
 
 
 def _run(fn, *args, **kwargs) -> dict:
@@ -88,18 +99,18 @@ def _run(fn, *args, **kwargs) -> dict:
         try:
             return view(fn(*args, **kwargs))
         except loop.NotFound as exc:
-            raise HTTPException(404, f"non trovato: {exc}") from exc
+            raise HTTPException(404, f"not found: {exc}") from exc
         except (loop.CaseError, ProjectError, ValueError) as exc:
             raise HTTPException(409, str(exc)) from exc
         except slicer.SlicerError as exc:
             raise HTTPException(502, f"slicer: {exc}") from exc
         except llm.LLMUnavailable as exc:
-            raise HTTPException(503, f"LLM non disponibile: {exc}") from exc
+            raise HTTPException(503, f"LLM unavailable: {exc}") from exc
 
 
 class DiagnoseRequest(BaseModel):
     mode: Literal["auto", "llm", "operator"] = "auto"
-    defect: str | None = Field(None, description="Obbligatorio in modalità operator")
+    defect: str | None = Field(None, description="Required in operator mode")
     severity: int | None = Field(None, ge=0, le=3)
     note: str = ""
 
@@ -111,8 +122,19 @@ class ProposeRequest(BaseModel):
 class DecisionRequest(BaseModel):
     approved: bool = False
     reason: str = ""
-    edits: dict[str, float] | None = Field(None, description="Chiave KB -> nuovo valore scelto dall'operatore")
+    edits: dict[str, float] | None = Field(None, description="KB key -> new value chosen by the operator")
     stop: bool = False
+    actor: str = "operator"
+
+
+class ConfirmRequest(BaseModel):
+    note: str = ""
+    actor: str = "operator"
+
+
+class RewindRequest(BaseModel):
+    iteration: int = Field(..., ge=1)
+    step: Literal["photos", "diagnosis", "patch", "approval"]
     actor: str = "operator"
 
 
@@ -139,13 +161,14 @@ def knowledge_base() -> dict:
 def list_cases() -> list[dict]:
     return [{"id": c.id, "name": c.name, "state": c.state, "outcome": c.outcome, "iteration": c.current.n,
              "printer": c.printer, "material": c.material, "updated_at": c.updated_at,
-             "defect": c.current.diagnosis.primary if c.current.diagnosis else None} for c in loop.list_cases()]
+             "defect": c.current.diagnosis.primary if c.current.diagnosis else None,
+             "allowed_actions": allowed_actions(c)} for c in loop.list_cases()]
 
 
 @app.post("/api/cases")
-def create_case(project: UploadFile = File(..., description="Progetto 3MF stampato"), name: str = Form("")) -> dict:
+def create_case(project: UploadFile = File(..., description="The printed 3MF project"), name: str = Form("")) -> dict:
     if not (project.filename or "").lower().endswith(".3mf"):
-        raise HTTPException(422, "serve un progetto .3mf di BambuStudio/OrcaSlicer")
+        raise HTTPException(422, "a BambuStudio/OrcaSlicer .3mf project is required")
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / Path(project.filename).name
         with open(path, "wb") as fh:
@@ -156,6 +179,16 @@ def create_case(project: UploadFile = File(..., description="Progetto 3MF stampa
 @app.get("/api/cases/{case_id}")
 def get_case(case_id: str) -> dict:
     return view(_get(case_id))
+
+
+@app.delete("/api/cases/{case_id}")
+def delete_case(case_id: str) -> dict:
+    with _lock:
+        try:
+            loop.delete(case_id)
+        except loop.NotFound as exc:
+            raise HTTPException(404, f"case {case_id} not found") from exc
+    return {"deleted": case_id}
 
 
 @app.post("/api/cases/{case_id}/photos")
@@ -179,6 +212,17 @@ def decision(case_id: str, req: DecisionRequest) -> dict:
     return _run(loop.decide, case_id, req.approved, req.reason, req.edits, req.stop, req.actor)
 
 
+@app.post("/api/cases/{case_id}/confirm")
+def confirm(case_id: str, req: ConfirmRequest | None = None) -> dict:
+    req = req or ConfirmRequest()
+    return _run(loop.confirm_success, case_id, req.note, req.actor)
+
+
+@app.post("/api/cases/{case_id}/rewind")
+def rewind(case_id: str, req: RewindRequest) -> dict:
+    return _run(loop.rewind, case_id, req.iteration, req.step, req.actor)
+
+
 @app.get("/api/cases/{case_id}/audit")
 def audit(case_id: str) -> list[dict]:
     _get(case_id)
@@ -190,20 +234,20 @@ def case_file(case_id: str, rel: str) -> FileResponse:
     try:
         path = loop.file_path(case_id, rel)
     except loop.NotFound as exc:
-        raise HTTPException(404, "file non trovato") from exc
-    if path.suffix == ".3mf":  # nome parlante per il download: printloop_<caso>_iter_1_attempt_1_sliced.3mf
+        raise HTTPException(404, "file not found") from exc
+    if path.suffix == ".3mf":  # descriptive download name: printloop_<case>_iter_1_attempt_1_sliced.3mf
         return FileResponse(path, filename=f"printloop_{case_id}_{rel.replace('/slice/', '_').replace('/', '_')}")
     return FileResponse(path)
 
 
-# Build del frontend (web/dist) servita dalla stessa app: in demo basta un processo. Fallback SPA su index.html.
+# The frontend build (web/dist) is served by the same app: one process is enough for the demo. SPA fallback.
 _DIST = ROOT / "web" / "dist"
 
 
 @app.get("/{full_path:path}", include_in_schema=False)
 def spa(full_path: str) -> FileResponse:
     if full_path.startswith("api/") or not (_DIST / "index.html").exists():
-        raise HTTPException(404, "non trovato")
+        raise HTTPException(404, "not found")
     target = (_DIST / full_path).resolve()
     if full_path and _DIST.resolve() in target.parents and target.is_file():
         return FileResponse(target)

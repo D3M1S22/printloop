@@ -1,6 +1,15 @@
-import type { AuditRow, Case, CaseSummary, DecisionRequest, DiagnoseRequest, Health, Taxonomy } from './types'
+import type {
+  AuditRow,
+  Case,
+  CaseSummary,
+  DecisionRequest,
+  DiagnoseRequest,
+  Health,
+  RewindStep,
+  Taxonomy,
+} from './types'
 
-/** Errore dell'API con il messaggio leggibile del backend (`{"detail": "..."}`). */
+/** API error carrying the backend's readable message (`{"detail": "..."}`). */
 export class ApiError extends Error {
   readonly status: number
 
@@ -11,10 +20,10 @@ export class ApiError extends Error {
   }
 }
 
-/** Sulla porta API risponde un servizio che non è PrintLoop. */
+/** Something other than PrintLoop answers on the API port. */
 export class WrongBackendError extends ApiError {
   constructor() {
-    super(0, 'Sulla porta configurata risponde un backend diverso da PrintLoop: controllare PRINTLOOP_API.')
+    super(0, 'A backend other than PrintLoop answers on the configured port: check PRINTLOOP_API.')
     this.name = 'WrongBackendError'
   }
 }
@@ -25,10 +34,13 @@ export interface PrintLoopApi {
   listCases(): Promise<CaseSummary[]>
   getCase(id: string): Promise<Case>
   createCase(project: File, name: string): Promise<Case>
+  deleteCase(id: string): Promise<void>
   uploadPhotos(id: string, photos: File[], note: string): Promise<Case>
   diagnose(id: string, req: DiagnoseRequest): Promise<Case>
   propose(id: string): Promise<Case>
   decide(id: string, req: DecisionRequest): Promise<Case>
+  confirm(id: string, note: string): Promise<Case>
+  rewind(id: string, iteration: number, step: RewindStep): Promise<Case>
   audit(id: string): Promise<AuditRow[]>
 }
 
@@ -37,7 +49,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     res = await fetch(path, init)
   } catch {
-    throw new ApiError(0, 'Backend non raggiungibile: avviare `uv run uvicorn printloop.api:app --port 8788`.')
+    throw new ApiError(0, 'Backend unreachable: start it with `uv run uvicorn printloop.api:app --port 8788`.')
   }
   if (!res.ok) {
     let message = `${res.status} ${res.statusText}`
@@ -48,7 +60,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         message = typeof detail === 'string' ? detail : JSON.stringify(detail)
       }
     } catch {
-      // risposta non JSON: resta il codice HTTP
+      // not a JSON reply: keep the HTTP status
     }
     throw new ApiError(res.status, message)
   }
@@ -61,7 +73,7 @@ const json = (body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 })
 
-/** Sulla stessa porta può rispondere un altro backend (es. MarginSwarm): lo riconosciamo dalla forma di /health. */
+/** Another backend (e.g. MarginSwarm) may answer on the same port: recognise ours by the shape of /health. */
 async function health(): Promise<Health> {
   const body = await request<Partial<Health>>('/api/health')
   if (!body.slicer || !body.llm) {
@@ -81,6 +93,9 @@ export const httpApi: PrintLoopApi = {
     form.append('name', name)
     return request('/api/cases', { method: 'POST', body: form })
   },
+  deleteCase: async (id) => {
+    await request(`/api/cases/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  },
   uploadPhotos: (id, photos, note) => {
     const form = new FormData()
     photos.forEach((p) => form.append('photos', p))
@@ -90,5 +105,7 @@ export const httpApi: PrintLoopApi = {
   diagnose: (id, req) => request(`/api/cases/${encodeURIComponent(id)}/diagnose`, json(req)),
   propose: (id) => request(`/api/cases/${encodeURIComponent(id)}/propose`, json({ mode: 'auto' })),
   decide: (id, req) => request(`/api/cases/${encodeURIComponent(id)}/decision`, json(req)),
+  confirm: (id, note) => request(`/api/cases/${encodeURIComponent(id)}/confirm`, json({ note })),
+  rewind: (id, iteration, step) => request(`/api/cases/${encodeURIComponent(id)}/rewind`, json({ iteration, step })),
   audit: (id) => request(`/api/cases/${encodeURIComponent(id)}/audit`),
 }

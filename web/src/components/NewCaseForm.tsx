@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import { useCreateCase } from '../api/hooks'
 import { Button, ErrorNotice } from './ui'
 
-/** Nuovo caso dal progetto 3MF stampato: contiene modello e impostazioni effettive dello slicer. */
+/** New case from the printed 3MF project: it holds the model and the actual slicer settings. */
 export function NewCaseForm() {
   const inputId = useId()
   const nameId = useId()
@@ -17,7 +17,7 @@ export function NewCaseForm() {
   const pick = (f: File | undefined) => {
     if (!f) return
     if (!f.name.toLowerCase().endsWith('.3mf')) {
-      setError('Serve un progetto .3mf di BambuStudio o OrcaSlicer (File → Salva progetto).')
+      setError('A BambuStudio or OrcaSlicer .3mf project is required (File → Save project).')
       return
     }
     setError(null)
@@ -50,9 +50,9 @@ export function NewCaseForm() {
         onDragLeave={() => setOver(false)}
         onDrop={onDrop}
       >
-        <strong>{file ? file.name : 'Progetto 3MF stampato'}</strong>
+        <strong>{file ? file.name : 'Printed 3MF project'}</strong>
         <span className="muted">
-          {file ? `${(file.size / 1024).toFixed(0)} kB · clic per cambiare` : 'Trascina qui o scegli il file'}
+          {file ? `${(file.size / 1024).toFixed(0)} kB · click to change` : 'Drop it here or browse'}
         </span>
         <input id={inputId} type="file" accept=".3mf" onChange={(e) => pick(e.target.files?.[0])} />
       </label>
@@ -62,19 +62,19 @@ export function NewCaseForm() {
         </p>
       )}
       <div className="field">
-        <label htmlFor={nameId}>Nome del caso</label>
+        <label htmlFor={nameId}>Case name</label>
         <input
           id={nameId}
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Es. staffa motore v2"
+          placeholder="E.g. motor bracket v2"
         />
       </div>
-      <ErrorNotice error={create.error} title="Caso non creato" />
+      <ErrorNotice error={create.error} title="Case not created" />
       <div className="btn-row">
         <Button type="submit" variant="primary" busy={create.isPending} disabled={!file}>
-          {create.isPending ? 'Slicing di riferimento…' : 'Crea il caso'}
+          {create.isPending ? 'Reference slice…' : 'Create the case'}
         </Button>
       </div>
     </form>

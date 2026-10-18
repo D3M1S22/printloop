@@ -1,9 +1,9 @@
 {
-  "id": "e203963023",
-  "name": "Staffa motore",
+  "id": "7f25472994",
+  "name": "Motor bracket",
   "state": "escalated",
-  "created_at": "2026-10-16T22:56:22+00:00",
-  "updated_at": "2026-10-16T22:56:22+00:00",
+  "created_at": "2026-10-18T04:02:29+00:00",
+  "updated_at": "2026-10-18T04:02:29+00:00",
   "printer": "Bambu Lab P1S 0.4 nozzle",
   "material": "PLA",
   "process": "0.20mm Standard @BBL X1C",
@@ -98,7 +98,9 @@
       }
     },
     "print_time_s": 746.014404296875,
-    "slice_elapsed_s": 0.34,
+    "slice_elapsed_s": 0.37,
+    "slicer": "BambuStudio-02.08.02.61",
+    "notes": [],
     "filament_g": 4.39
   },
   "iterations": [
@@ -119,7 +121,7 @@
             "evidence": [
               {
                 "photo": "iter_1/photos/side.jpg",
-                "description": "indicato dall'operatore"
+                "description": "stated by the operator"
               }
             ],
             "location": ""
@@ -132,7 +134,7 @@
         "model": null,
         "latency_ms": null,
         "note": "",
-        "at": "2026-10-16T22:56:22+00:00",
+        "at": "2026-10-18T04:02:29+00:00",
         "primary_label": "Layer shift",
         "severity": 3,
         "confidence": 1.0
@@ -145,18 +147,38 @@
       "slice": null,
       "decision": null,
       "rejected": [],
+      "confirmed": null,
       "photo_urls": [
-        "/api/cases/e203963023/files/iter_1/photos/side.jpg"
+        "/api/cases/7f25472994/files/iter_1/photos/side.jpg"
       ],
       "print_file_url": null,
-      "project_url": "/api/cases/e203963023/files/original.3mf"
+      "project_url": "/api/cases/7f25472994/files/original.3mf"
     }
   ],
   "rejected_keys": [],
   "outcome": "escalated",
-  "message": "Causa tipicamente meccanica (cinghie, pulegge, collisioni con il pezzo): serve un controllo manuale della stampante.",
-  "allowed_actions": [],
-  "llm_mode": "offline",
+  "message": "Typically a mechanical cause (belts, pulleys, collisions with the part): the printer needs a manual check.",
+  "allowed_actions": [
+    "rewind"
+  ],
+  "rewind_targets": [
+    {
+      "iteration": 1,
+      "step": "photos",
+      "discards": [
+        "1 photo of iteration 1",
+        "the diagnosis of iteration 1"
+      ]
+    },
+    {
+      "iteration": 1,
+      "step": "diagnosis",
+      "discards": [
+        "the diagnosis of iteration 1"
+      ]
+    }
+  ],
+  "llm_mode": "llm",
   "latest_print_file_url": null,
   "edit_options": []
 }

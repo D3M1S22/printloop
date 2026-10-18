@@ -5,7 +5,7 @@ import { Button, ErrorNotice } from './ui'
 
 type Mode = 'idle' | 'edit' | 'stop'
 
-/** Valori iniziali dell'editor: quello proposto se c'è, altrimenti il valore attuale del progetto. */
+/** Initial editor values: the proposed one if any, otherwise the project's current value. */
 const initialValues = (options: EditOption[]) =>
   Object.fromEntries(options.map((o) => [o.key, String(o.proposed ?? o.current)]))
 
@@ -41,7 +41,7 @@ export function DecisionPanel({
 
   const submit = (req: DecisionRequest, needsReason: boolean) => {
     if (needsReason && !reason.trim()) {
-      setLocalError('Serve una motivazione: resta nell’audit del caso.')
+      setLocalError('A reason is required: it is kept in the case audit log.')
       return
     }
     setLocalError(null)
@@ -53,30 +53,30 @@ export function DecisionPanel({
   const recompute = () => {
     const e = edits()
     const keys = Object.keys(e)
-    if (keys.length === 0) return setLocalError('Nessun valore diverso da quello attuale.')
-    if (keys.length > 2) return setLocalError('Al massimo 2 parametri per iterazione.')
+    if (keys.length === 0) return setLocalError('No value differs from the current one.')
+    if (keys.length > 2) return setLocalError('At most 2 parameters per iteration.')
     const outOfRange = options.find((o) => o.key in e && (e[o.key]! < o.min || e[o.key]! > o.max))
     if (outOfRange)
       return setLocalError(
-        `${outOfRange.label}: fuori dai limiti ${num(outOfRange.min)}–${num(outOfRange.max, outOfRange.unit)}.`,
+        `${outOfRange.label}: out of bounds ${num(outOfRange.min)}–${num(outOfRange.max, outOfRange.unit)}.`,
       )
-    submit({ approved: false, reason: reason.trim() || 'valori modificati dall’operatore', edits: e }, false)
+    submit({ approved: false, reason: reason.trim() || 'values edited by the operator', edits: e }, false)
   }
 
   return (
     <div className="stack">
       <div className="field">
-        <label htmlFor={reasonId}>Motivazione {preflightOk ? '(obbligatoria per rifiutare)' : '(obbligatoria)'}</label>
+        <label htmlFor={reasonId}>Reason {preflightOk ? '(required to reject)' : '(required)'}</label>
         <textarea
           id={reasonId}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          placeholder="Es. preferisco provare prima con la ventola…"
+          placeholder="E.g. I would rather try the fan first…"
         />
       </div>
 
       {mode === 'edit' && (
-        <div className="edit-grid" role="group" aria-label="Modifica dei valori">
+        <div className="edit-grid" role="group" aria-label="Edit the values">
           {options.map((o) => (
             <div className="edit-row" key={o.key}>
               <label htmlFor={`edit-${o.key}`}>{o.label}</label>
@@ -91,7 +91,7 @@ export function DecisionPanel({
                 onChange={(e) => setValues((v) => ({ ...v, [o.key]: e.target.value }))}
               />
               <span className="hint">
-                attuale {num(o.current, o.unit)} · limiti {num(o.min)}–{num(o.max, o.unit)} · passo consigliato{' '}
+                current {num(o.current, o.unit)} · bounds {num(o.min)}–{num(o.max, o.unit)} · suggested step{' '}
                 {o.direction === 'up' ? '+' : '−'}
                 {num(o.step, o.unit)}
               </span>
@@ -99,10 +99,10 @@ export function DecisionPanel({
           ))}
           <div className="btn-row">
             <Button variant="primary" busy={busy} onClick={recompute}>
-              Ricalcola slicing e verifica
+              Re-slice and verify
             </Button>
             <Button variant="ghost" onClick={() => setMode('idle')}>
-              Annulla
+              Cancel
             </Button>
           </div>
         </div>
@@ -110,14 +110,14 @@ export function DecisionPanel({
 
       {mode === 'stop' && (
         <div className="notice notice--warn">
-          <strong>Chiudere il loop su questo caso?</strong>
-          <span>Il caso passa all'operatore; la motivazione resta nell'audit.</span>
+          <strong>Stop the loop on this case?</strong>
+          <span>The case is handed to the operator; the reason is kept in the audit log.</span>
           <div className="btn-row">
             <Button variant="danger" busy={busy} onClick={() => submit({ approved: false, reason, stop: true }, false)}>
-              Sì, ferma il loop
+              Yes, stop the loop
             </Button>
             <Button variant="ghost" onClick={() => setMode('idle')}>
-              Annulla
+              Cancel
             </Button>
           </div>
         </div>
@@ -133,18 +133,18 @@ export function DecisionPanel({
       {mode === 'idle' && (
         <div className="btn-row">
           <Button variant="primary" busy={busy} onClick={approve}>
-            {preflightOk ? 'Approva e prepara la ristampa' : 'Approva comunque'}
+            {preflightOk ? 'Approve and prepare the reprint' : 'Approve anyway'}
           </Button>
           <Button variant="danger" disabled={busy} onClick={reject}>
-            Rifiuta
+            Reject
           </Button>
           {options.length > 0 && (
             <Button disabled={busy} onClick={() => setMode('edit')}>
-              Modifica i valori
+              Edit the values
             </Button>
           )}
           <Button variant="ghost" disabled={busy} onClick={() => setMode('stop')}>
-            Ferma il loop
+            Stop the loop
           </Button>
         </div>
       )}

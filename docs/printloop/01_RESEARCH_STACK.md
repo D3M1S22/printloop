@@ -1,166 +1,166 @@
-# 01. Ricerca: fonti ufficiali e stack per PrintLoop
+# 01. Research: official sources and stack for PrintLoop
 
-> Ricerca del **16 ottobre 2026** su documentazione Bambu Lab (tramite guide che la citano), OpenBambuAPI, wiki OrcaSlicer, recipe vLLM, documentazione Gemma, repository Cambridge.
-> Per AMD Developer Cloud, Token Factory ed evento valgono le verifiche già fatte per MarginSwarm (`docs/marginswarm/01_RESEARCH_STACK.md` sul branch `MarginSwarm`), riassunte qui al §1.
-> Legenda: ✅ verificato su fonte ufficiale · ⚠️ fonte terza, reverse engineering o dato da riconfermare · ❓ da verificare con uno spike.
+> Research of **16 October 2026** on Bambu Lab documentation (through guides that cite it), OpenBambuAPI, the OrcaSlicer wiki, vLLM recipes, Gemma documentation and the Cambridge repository.
+> For AMD Developer Cloud, Token Factory and the event, the checks already made for MarginSwarm apply (`docs/marginswarm/01_RESEARCH_STACK.md` on the `MarginSwarm` branch), summarised here in §1.
+> Legend: ✅ verified on an official source · ⚠️ third-party source, reverse engineering or figure to reconfirm · ❓ to verify with a spike.
 
 ---
 
-## 0. TL;DR operativo
+## 0. Operational TL;DR
 
-| Componente | Cosa usiamo | Stato |
+| Component | What we use | Status |
 | :-- | :-- | :-- |
-| Modello di diagnosi | **Gemma 4 26B-A4B-it** (31B in alternativa) su **vLLM-ROCm**, droplet **MI300X** | ✅ stack, ❓ crediti |
-| Input al modello | 1–4 **immagini** per richiesta, output JSON con schema | ✅ |
-| Slicer | **OrcaSlicer CLI**: `--load-settings`, `--slice`, `--export-3mf`, `--export-settings` | ✅ sintassi, ❓ headless su Linux |
-| Stampante (stretch) | **P1S in LAN-only + Developer Mode**: MQTT su 8883, camera su 6000, FTPS su 990 | ✅ modalità, ⚠️ protocollo |
-| Fallback LLM | AMD Token Factory (modello vision citato da fonti terze, niente Gemma) | ⚠️ |
-| Benchmark AMD extra (stretch) | Fine-tuning di un classificatore leggero su **CAXTON** (CC BY 4.0) con PyTorch ROCm | ✅ licenza, ❓ dimensione immagini |
+| Diagnosis model | **Gemma 4 26B-A4B-it** (31B as an alternative) on **vLLM-ROCm**, **MI300X** droplet | ✅ stack, ❓ credits |
+| Model input | 1–4 **images** per request, JSON output with a schema | ✅ |
+| Slicer | **OrcaSlicer CLI**: `--load-settings`, `--slice`, `--export-3mf`, `--export-settings` | ✅ syntax, ❓ headless on Linux |
+| Printer (stretch) | **P1S in LAN-only + Developer Mode**: MQTT on 8883, camera on 6000, FTPS on 990 | ✅ mode, ⚠️ protocol |
+| LLM fallback | AMD Token Factory (vision model cited by third-party sources, no Gemma) | ⚠️ |
+| Extra AMD benchmark (stretch) | Fine-tuning a light classifier on **CAXTON** (CC BY 4.0) with PyTorch ROCm | ✅ licence, ❓ image size |
 
-**Da sbloccare subito:** crediti del droplet MI300X (come per MarginSwarm), firmware della P1S (≥ 01.08.02.00 per il Developer Mode), OrcaSlicer CLI funzionante sulla macchina di sviluppo.
+**To unblock right away:** MI300X droplet credits (as for MarginSwarm), P1S firmware (≥ 01.08.02.00 for Developer Mode), a working OrcaSlicer CLI on the development machine.
 
 ---
 
-## 1. AMD ed evento (riassunto dalla ricerca MarginSwarm)
+## 1. AMD and the event (summary of the MarginSwarm research)
 
-- Una parte significativa e reale del carico deve girare su AMD e comparire nel prodotto mostrato ai giudici. ✅
-- **AMD Developer Cloud:** MI300X ×1, 192 GB, ~1,99 $/h; immagine "vLLM Quick Start"; serve un metodo di pagamento anche con i crediti; un droplet spento costa ancora, va **distrutto**. ⚠️ prezzi
-- **Sicurezza:** i port mapping Docker scavalcano UFW → vLLM sempre con `--api-key`. ✅
-- **Token Factory** (`notebooks.amd.com/tokenfactory`): API OpenAI-compatibile su GPU AMD, gratuita per l'evento. Tra i modelli citati da fonti terze c'è **DeepSeek-V4-Flash-Vision-Exp**, utile come fallback di diagnosi. Niente Gemma, quindi niente premio Google con il fallback. ⚠️
-- **Google:** Gemma su GPU AMD rende il progetto eleggibile al premio Google (5.000 $). ✅
-- **Evolus:** non è nel percorso critico di PrintLoop. Resta possibile (BYOM + Knowledge Library con la KB dei difetti + Workflow), ma non è pianificato.
-- **Pagina evento:** montepremi aggiornato a **17.000 $+**, con i partner IMMENT e BAC Network. **Scadenza: domenica 18/10 ore 12:00.**
+- A significant, real part of the workload must run on AMD and show up in the product presented to the judges. ✅
+- **AMD Developer Cloud:** MI300X ×1, 192 GB, ~$1.99/h; "vLLM Quick Start" image; a payment method is needed even with credits; a stopped droplet still costs money, it must be **destroyed**. ⚠️ prices
+- **Security:** Docker port mappings bypass UFW → vLLM always with `--api-key`. ✅
+- **Token Factory** (`notebooks.amd.com/tokenfactory`): OpenAI-compatible API on AMD GPUs, free for the event. Among the models cited by third-party sources there is **DeepSeek-V4-Flash-Vision-Exp**, useful as a diagnosis fallback. No Gemma, so no Google prize with the fallback. ⚠️
+- **Google:** Gemma on AMD GPUs makes the project eligible for the Google prize ($5,000). ✅
+- **Evolus:** not on PrintLoop's critical path. Still possible (BYOM + Knowledge Library with the defect KB + Workflow), but not planned.
+- **Event page:** prize pool updated to **$17,000+**, with partners IMMENT and BAC Network. **Deadline: Sunday 18/10 at 12:00.**
 
 ---
 
 ## 2. Bambu Lab P1S
 
-### 2.1 LAN-only e Developer Mode ✅ / ⚠️
-- Dal firmware di gennaio 2025 ("Authorization Control"), le azioni di scrittura di software terzi sono bloccate in modalità Cloud. Il percorso previsto da Bambu è il **Developer Mode**, che lascia aperti **MQTT, live stream e FTP**. Bambu dichiara di **non supportare** i protocolli in questa modalità. ✅ (annuncio Bambu sul forum)
-- Sulla serie P1 il Developer Mode c'è dal firmware **01.08.02.00**. ⚠️ (guida SimplyPrint, che rimanda al wiki Bambu)
-- Attivazione dalla stampante: *Impostazioni → WLAN* → **LAN-only Mode** on → riavvio → **Developer Mode** on. L'access code è nello stesso menu. ⚠️
-- Effetti collaterali: **Bambu Handy smette di funzionare**, niente aggiornamenti firmware via app, **serve una microSD** nella stampante per i trasferimenti di file. ⚠️
-- Regola del progetto: **solo** Developer Mode, nessun bypass di certificati o autenticazione.
+### 2.1 LAN-only and Developer Mode ✅ / ⚠️
+- Since the January 2025 firmware ("Authorization Control"), write actions from third-party software are blocked in Cloud mode. Bambu's intended path is **Developer Mode**, which leaves **MQTT, live stream and FTP** open. Bambu states that it does **not support** the protocols in this mode. ✅ (Bambu announcement on the forum)
+- On the P1 series Developer Mode exists since firmware **01.08.02.00**. ⚠️ (SimplyPrint guide, pointing to the Bambu wiki)
+- Enabling it on the printer: *Settings → WLAN* → **LAN-only Mode** on → reboot → **Developer Mode** on. The access code is in the same menu. ⚠️
+- Side effects: **Bambu Handy stops working**, no firmware updates through the app, **a microSD card is needed** in the printer for file transfers. ⚠️
+- Project rule: Developer Mode **only**, no bypass of certificates or authentication.
 
-### 2.2 MQTT ⚠️ (OpenBambuAPI, protocollo ricostruito dalla community)
-- Locale: `mqtts://{PRINTER_IP}:8883`, TLS, utente `bblp`, password = access code LAN.
-- Topic: `device/{SERIAL}/report` (stampante → client), `device/{SERIAL}/request` (client → stampante).
-- Comandi utili:
+### 2.2 MQTT ⚠️ (OpenBambuAPI, protocol reconstructed by the community)
+- Local: `mqtts://{PRINTER_IP}:8883`, TLS, user `bblp`, password = LAN access code.
+- Topics: `device/{SERIAL}/report` (printer → client), `device/{SERIAL}/request` (client → printer).
+- Useful commands:
 
-| Comando | `param` | Uso in PrintLoop |
+| Command | `param` | Use in PrintLoop |
 | :-- | :-- | :-- |
-| `print.pause` / `print.resume` / `print.stop` | vuoto | Modo 1: pausa con conferma dell'operatore |
-| `print.print_speed` | `"1"` silent, `"2"` standard, `"3"` sport, `"4"` ludicrous | Unico override di velocità: 4 livelli, non percentuali |
-| `print.gcode_line` | G-code raw, righe separate da `\n` | Da evitare in demo: nessuna garanzia di sicurezza |
-| `print.project_file` | `Metadata/plate_N.gcode` + `url` del 3MF sulla SD | Avvio della ristampa (stretch) |
-| `pushing.pushall` | — | Stato completo |
+| `print.pause` / `print.resume` / `print.stop` | empty | Mode 1: pause with operator confirmation |
+| `print.print_speed` | `"1"` silent, `"2"` standard, `"3"` sport, `"4"` ludicrous | The only speed override: 4 levels, not percentages |
+| `print.gcode_line` | raw G-code, lines separated by `\n` | Avoid in the demo: no safety guarantee |
+| `print.project_file` | `Metadata/plate_N.gcode` + `url` of the 3MF on the SD card | Starting the reprint (stretch) |
+| `pushing.pushall` | — | Full status |
 
-- `push_status` contiene, tra gli altri: `layer_num`, `total_layer_num`, `mc_percent`, `mc_remaining_time`, `gcode_state`, `nozzle_temper` e `nozzle_target_temper`, `bed_temper`, `cooling_fan_speed`, `print_error`, `hms`.
-- **Caveat P1:** la P1 invia solo i campi cambiati dall'ultimo report. Per lo stato completo serve `pushall`, da non chiamare più spesso di ogni 5 minuti (sulla P1P causa lag).
+- `push_status` contains, among others: `layer_num`, `total_layer_num`, `mc_percent`, `mc_remaining_time`, `gcode_state`, `nozzle_temper` and `nozzle_target_temper`, `bed_temper`, `cooling_fan_speed`, `print_error`, `hms`.
+- **P1 caveat:** the P1 sends only the fields that changed since the last report. The full status needs `pushall`, not to be called more often than every 5 minutes (it causes lag on the P1P).
 
 ### 2.3 Camera ⚠️
-- P1 e A1 non usano RTSP (che è di X1 e P2S): usano uno **stream TCP proprietario su TLS, porta 6000**. Un pacchetto di autenticazione binario di 64 byte contiene utente `bblp` e access code. I frame sono **JPEG 1280×720**, ciascuno preceduto da un header di 16 byte. (OpenBambuAPI)
-- Frame rate: ~**0,5 fps** secondo la scheda prodotto della chamber camera P1. ⚠️ da misurare
-- **Conseguenza:** la camera di bordo basta per i difetti grossolani (spaghetti, distacco, layer shift), non per stringing, sotto-estrusione o qualità superficiale. Questi passano dal Modo 2 con le foto del telefono.
+- P1 and A1 do not use RTSP (that is for X1 and P2S): they use a **proprietary TCP stream over TLS, port 6000**. A 64-byte binary authentication packet holds the user `bblp` and the access code. Frames are **1280×720 JPEGs**, each preceded by a 16-byte header. (OpenBambuAPI)
+- Frame rate: ~**0.5 fps** according to the P1 chamber camera product page. ⚠️ to be measured
+- **Consequence:** the on-board camera is enough for gross defects (spaghetti, detachment, layer shift), not for stringing, under-extrusion or surface quality. Those go through Mode 2 with phone photos.
 
-### 2.4 File ⚠️
-- FTPS implicito sulla **porta 990** (stesse credenziali), usato per caricare il 3MF sulla SD prima di `print.project_file`.
+### 2.4 Files ⚠️
+- Implicit FTPS on **port 990** (same credentials), used to upload the 3MF to the SD card before `print.project_file`.
 
 ---
 
-## 3. Gemma 4 su vLLM-ROCm
+## 3. Gemma 4 on vLLM-ROCm
 
-### 3.1 Modalità ✅ (Google AI docs, ora deprecate a favore di gemma.ai)
-| Variante | Testo | Immagini | Video | Audio |
+### 3.1 Modalities ✅ (Google AI docs, now deprecated in favour of gemma.ai)
+| Variant | Text | Images | Video | Audio |
 | :-- | :-: | :-: | :-: | :-: |
 | E2B, E4B | ✅ | ✅ | ✅ | ✅ |
 | 12B | ✅ | ✅ | ✅ | ✅ |
-| **26B-A4B (MoE, ~4B attivi)** | ✅ | ✅ | ✅ | — |
+| **26B-A4B (MoE, ~4B active)** | ✅ | ✅ | ✅ | — |
 | **31B (dense)** | ✅ | ✅ | ✅ | — |
 
-Per la diagnosi bastano le immagini. L'audio non serve.
+Images are enough for the diagnosis. Audio is not needed.
 
-### 3.2 Serving ✅ (recipe vLLM Gemma 4)
-- MI300X/MI325X/MI350X/MI355X supportano tutte le varianti su una sola GPU. Immagine `vllm/vllm-openai-rocm:latest` (accesso a `/dev/kfd` e `/dev/dri`); ROCm 7.2.1, Python 3.12.
-- Flag rilevanti per PrintLoop:
-  - `--limit-mm-per-prompt '{"image": 4, "audio": 0}'`: fino a 4 foto per richiesta;
-  - `--mm-processor-kwargs`: budget di token visivi per immagine, valori **70, 140, 280 (default), 560, 1120**. Per difetti fini (stringing, layer) si prova 560 o 1120. È un parametro da benchmarkare;
-  - `--max-model-len` adeguato al carico (16k bastano);
-  - `--gpu-memory-utilization 0.90`: senza Monte Carlo da ospitare, a differenza di MarginSwarm, si può dare quasi tutta la VRAM a vLLM;
-  - `--async-scheduling` per il throughput.
-- **Structured output:** `response_format` con `json_schema`. Lo schema forza la forma, non il contenuto: le istruzioni vanno anche nel system prompt, perché il modello non vede le descrizioni dello schema. ✅
-- **Video:** supportato tramite estrazione di frame nella pipeline vLLM, ma la recipe **non documenta** un limite di frame per richiesta né la gestione dei timestamp. Il "fino a 32 frame" del concept non è confermato: niente video nell'MVP. ⚠️
-- Tool calling (`--tool-call-parser gemma4`) non serve all'MVP: la patch si ottiene con JSON schema.
+### 3.2 Serving ✅ (vLLM Gemma 4 recipe)
+- MI300X/MI325X/MI350X/MI355X support every variant on a single GPU. Image `vllm/vllm-openai-rocm:latest` (access to `/dev/kfd` and `/dev/dri`); ROCm 7.2.1, Python 3.12.
+- Flags relevant to PrintLoop:
+  - `--limit-mm-per-prompt '{"image": 4, "audio": 0}'`: up to 4 photos per request;
+  - `--mm-processor-kwargs`: visual token budget per image, values **70, 140, 280 (default), 560, 1120**. For fine defects (stringing, layers) try 560 or 1120. It is a parameter to benchmark;
+  - `--max-model-len` sized to the load (16k is enough);
+  - `--gpu-memory-utilization 0.90`: with no Monte Carlo to host, unlike MarginSwarm, almost all the VRAM can go to vLLM;
+  - `--async-scheduling` for throughput.
+- **Structured output:** `response_format` with `json_schema`. The schema forces the shape, not the content: the instructions must also be in the system prompt, because the model does not see the schema descriptions. ✅
+- **Video:** supported through frame extraction in the vLLM pipeline, but the recipe **does not document** a frame limit per request or timestamp handling. The concept's "up to 32 frames" is not confirmed: no video in the MVP. ⚠️
+- Tool calling (`--tool-call-parser gemma4`) is not needed for the MVP: the patch is obtained with a JSON schema.
 
 ---
 
 ## 4. OrcaSlicer CLI
 
-### 4.1 Sintassi ✅ (wiki OrcaSlicer)
-- `orca-slicer [input...] [opzioni...]`: ogni argomento senza `-` è un file da caricare.
-- I nomi delle chiavi diventano flag con i trattini: `layer_height` → `--layer-height`. Si può fare l'override di quasi tutte le chiavi di process, filament e printer con `--chiave=valore`.
-- 43 chiavi sono **rifiutate** come override, tra cui `inherits`, `inherits_group`, `preset_name`, `compatible_printers`, `printer_model`.
-- `--load-settings "process.json;printer.json"` e `--load-filaments filament.json` caricano i JSON esportati dal GUI (*Save/Export* di ogni scheda).
-- **L'ordine conta:** printer prima, poi process. ⚠️ (fonte terza)
-- Le flag sono cambiate tra versioni (`--load-filaments` contro `--load-filament`). Fissiamo una versione e verifichiamo con `orca-slicer --help`. ⚠️
+### 4.1 Syntax ✅ (OrcaSlicer wiki)
+- `orca-slicer [input...] [options...]`: every argument without `-` is a file to load.
+- Key names become flags with dashes: `layer_height` → `--layer-height`. Almost every process, filament and printer key can be overridden with `--key=value`.
+- 43 keys are **rejected** as overrides, including `inherits`, `inherits_group`, `preset_name`, `compatible_printers`, `printer_model`.
+- `--load-settings "process.json;printer.json"` and `--load-filaments filament.json` load the JSONs exported by the GUI (*Save/Export* on each tab).
+- **Order matters:** printer first, then process. ⚠️ (third-party source)
+- Flags changed between versions (`--load-filaments` vs `--load-filament`). We pin a version and check with `orca-slicer --help`. ⚠️
 
-### 4.2 Azioni ✅
-- `--slice 0` per tutte le piastre, `--slice i` per la piastra *i*.
-- `--export-3mf out.3mf`: progetto 3MF con il G-code della piastra dentro (`Metadata/plate_N.gcode`, da estrarre con unzip). ⚠️ percorso interno da verificare
-- `--export-settings settings.json`: esporta le **impostazioni effettive** (process + printer + filament) in un JSON. **Risolve l'appiattimento dei preset con `inherits`.**
-- `--min-save`: 3MF ridotto.
-- Esempio ufficiale:
+### 4.2 Actions ✅
+- `--slice 0` for every plate, `--slice i` for plate *i*.
+- `--export-3mf out.3mf`: 3MF project with the plate's G-code inside (`Metadata/plate_N.gcode`, to extract with unzip). ⚠️ internal path to verify
+- `--export-settings settings.json`: exports the **effective settings** (process + printer + filament) to a JSON. **This solves flattening presets with `inherits`.**
+- `--min-save`: reduced 3MF.
+- Official example:
   ```bash
   orca-slicer model.3mf --load-settings "process.json;printer.json" --load-filaments filament.json \
     --arrange 1 --slice 0 --export-3mf output.3mf
   ```
-- Non documentati: export di `.gcode` puro, `--outputdir`, codici di uscita, necessità di un display (`xvfb`). ❓
+- Not documented: plain `.gcode` export, `--outputdir`, exit codes, need for a display (`xvfb`). ❓
 
-### 4.3 Commenti nel G-code ✅ (verificato il 17/10 su BambuStudio 2.8.2)
-`; FEATURE: <tipo>` (Bridge, Outer wall, Inner wall, Overhang wall, …), `; CHANGE_LAYER`, `; LAYER_HEIGHT:`, `; LINE_WIDTH:`, un `CONFIG_BLOCK` con tutte le impostazioni effettive e un'intestazione con tempo, lunghezza e peso del filamento. Con `--outputdir` la CLI scrive anche `plate_<n>.gcode` e `result.json` (tempi per feature, grammi). Headless senza display: funziona (fallisce solo la miniatura, per OSMesa assente). Dettagli in [06_IMPLEMENTATION_STATUS.md](06_IMPLEMENTATION_STATUS.md) §2.
+### 4.3 Comments in the G-code ✅ (verified on 17/10 on BambuStudio 2.8.2)
+`; FEATURE: <type>` (Bridge, Outer wall, Inner wall, Overhang wall, …), `; CHANGE_LAYER`, `; LAYER_HEIGHT:`, `; LINE_WIDTH:`, a `CONFIG_BLOCK` with all the effective settings and a header with time, filament length and weight. With `--outputdir` the CLI also writes `plate_<n>.gcode` and `result.json` (per-feature times, grams). Headless without a display: it works (only the thumbnail fails, because OSMesa is missing). Details in [06_IMPLEMENTATION_STATUS.md](06_IMPLEMENTATION_STATUS.md) §2.
 
-### 4.4 Come OrcaSlicer riapre un progetto ✅ (sorgente OrcaSlicer + log della GUI 2.4.2; prova in GUI con V3 in corso)
-- La GUI carica un 3MF con `PresetBundle::load_config_file_config()` → `PresetCollection::load_external_preset()` → `Preset::load_external_config()`.
-- Le chiavi "modificate rispetto al sistema" si leggono da `different_settings_to_system`: una stringa per sezione, nell'ordine **[process, filamento 1..n, stampante]**, con le chiavi separate da `;`.
-- `PresetBundle::project_different_keys()` vi aggiunge sempre `ignore_settings_list` (`inherits`, `*_settings_id`), quindi l'insieme non è mai vuoto. Di conseguenza `load_external_config()` esegue sempre `update_non_diff_values_to_base_config()`: **ogni chiave non elencata torna al valore del preset di sistema**.
-- Quando la GUI salva, la lista viene compilata con le opzioni modificate rispetto al preset padre (`dirty_options_without_option_list`). La **CLI** invece la esporta vuota (`['', '', '']`).
-- Conseguenza per PrintLoop: ogni chiave patchata va dichiarata in quella lista (`project.mark_different`), altrimenti l'utente riapre il progetto e vede il valore di sistema, mentre il G-code usa quello nuovo. BambuStudio 2.8 su questi file mostra comunque il valore del progetto.
-- La CLI non passa da questo caricatore: legge sempre i valori del progetto.
+### 4.4 How OrcaSlicer reopens a project ✅ (OrcaSlicer source + GUI 2.4.2 log; GUI test with V3 in progress)
+- The GUI loads a 3MF with `PresetBundle::load_config_file_config()` → `PresetCollection::load_external_preset()` → `Preset::load_external_config()`.
+- The keys "modified against the system preset" are read from `different_settings_to_system`: one string per section, in the order **[process, filament 1..n, printer]**, with keys separated by `;`.
+- `PresetBundle::project_different_keys()` always adds `ignore_settings_list` (`inherits`, `*_settings_id`) to it, so the set is never empty. As a result `load_external_config()` always runs `update_non_diff_values_to_base_config()`: **every key not listed goes back to the system preset value**.
+- When the GUI saves, the list is filled with the options changed against the parent preset (`dirty_options_without_option_list`). The **CLI**, instead, exports it empty (`['', '', '']`).
+- Consequence for PrintLoop: every patched key must be declared in that list (`project.mark_different`), otherwise the user reopens the project and sees the system value while the G-code uses the new one. BambuStudio 2.8 shows the project value on these files anyway.
+- The CLI does not go through this loader: it always reads the project values.
 
 ---
 
-## 5. Prior art (da citare nel pitch)
+## 5. Prior art (to cite in the pitch)
 
-| Lavoro | Cosa fa | Differenza con PrintLoop |
+| Work | What it does | Difference from PrintLoop |
 | :-- | :-- | :-- |
-| **AI failure detection della P1S** (firmware Bambu) | Rileva spaghetti e, nelle versioni recenti, warping e layer shift iniziali. ⚠️ (fonte terza) | Allarme, nessuna causa né correzione. Il nostro Modo 1 non deve competere qui |
-| **Obico** (e integrazione HA per P1) | Rilevamento spaghetti con modello ML self-hosted | Come sopra |
-| **CAXTON**, Brion & Pattinson, *Nature Communications* 2022 ✅ | Rete multi-head che classifica flow, velocità laterale, Z offset e temperatura dell'hotend (basso/ok/alto) da un'immagine vicino all'ugello, e corregge in loop chiuso in tempo reale. Accuratezza media 84,3% | Camera dedicata accanto all'ugello, correzione sul firmware durante la stampa, nessuna modifica del preset né verifica sul G-code. Noi lavoriamo su foto del pezzo finito, con macchine di serie, e produciamo un preset corretto e verificato |
+| **P1S AI failure detection** (Bambu firmware) | Detects spaghetti and, in recent versions, early warping and layer shift. ⚠️ (third-party source) | An alarm, no cause and no fix. Our Mode 1 must not compete here |
+| **Obico** (and the HA integration for P1) | Spaghetti detection with a self-hosted ML model | Same as above |
+| **CAXTON**, Brion & Pattinson, *Nature Communications* 2022 ✅ | Multi-head network that classifies flow, lateral speed, Z offset and hotend temperature (low/ok/high) from an image near the nozzle, and corrects in real-time closed loop. Mean accuracy 84.3% | Dedicated camera next to the nozzle, correction on the firmware during the print, no preset change and no G-code verification. We work on photos of the finished part, with stock machines, and produce a corrected, verified preset |
 
 ---
 
-## 6. Dataset pubblici
+## 6. Public datasets
 
-| Dataset | Contenuto | Licenza | Uso |
+| Dataset | Content | Licence | Use |
 | :-- | :-- | :-- | :-- |
-| **CAXTON** (Cambridge, handle 1810/339869) | **1.272.273 immagini** di estrusione da 192 pezzi su 8 stampanti Marlin, etichettate con flow, velocità laterale, Z offset, temperature hotend e piano, coordinate. CSV filtrato da 948.396 immagini | **CC BY 4.0** ✅ | Benchmark ROCm (fine-tuning di un classificatore piccolo), test di Gemma sul riconoscimento di sotto- e sovra-estrusione. Dominio diverso dal nostro: camera all'ugello, non foto del pezzo. Dimensione degli archivi immagini ❓ |
-| **Roboflow 3D_FDM_faults_detection** | Bounding box di difetti FDM | CC BY 4.0 (dal concept) ❓ | Test aggiuntivo per la tassonomia. Classi non verificate (pagina 403) |
-| **AGH 3D printer anomalies** (arXiv 2004.08817) | Anomalie di stampa | CC BY 4.0 (dal concept) ❓ | Opzionale |
+| **CAXTON** (Cambridge, handle 1810/339869) | **1,272,273 extrusion images** from 192 parts on 8 Marlin printers, labelled with flow, lateral speed, Z offset, hotend and bed temperatures, coordinates. Filtered CSV of 948,396 images | **CC BY 4.0** ✅ | ROCm benchmark (fine-tuning a small classifier), testing Gemma on recognising under- and over-extrusion. A different domain from ours: nozzle camera, not photos of the part. Size of the image archives ❓ |
+| **Roboflow 3D_FDM_faults_detection** | Bounding boxes of FDM defects | CC BY 4.0 (from the concept) ❓ | Extra test for the taxonomy. Classes not verified (page 403) |
+| **AGH 3D printer anomalies** (arXiv 2004.08817) | Print anomalies | CC BY 4.0 (from the concept) ❓ | Optional |
 
-Nessuno di questi contiene foto del pezzo finito + preset + G-code: **il test set principale lo produciamo noi** ([02_DATA_STRATEGY.md](02_DATA_STRATEGY.md)).
+None of these holds photos of the finished part + preset + G-code: **we produce the main test set ourselves** ([02_DATA_STRATEGY.md](02_DATA_STRATEGY.md)).
 
 ---
 
-## 7. Fonti
+## 7. Sources
 
 - [Bambu Lab — Updates and Third-Party Integration with Bambu Connect](https://forum.bambulab.com/t/updates-and-third-party-integration-with-bambu-connect/137408)
-- [SimplyPrint — Bambu Lab LAN-only mode and Developer Mode](https://help.simplyprint.io/en/article/bambu-lab-lan-only-mode-and-developer-mode-how-to-enable-xa0hch/) (rimanda a `wiki.bambulab.com/en/knowledge-sharing/enable-developer-mode`)
+- [SimplyPrint — Bambu Lab LAN-only mode and Developer Mode](https://help.simplyprint.io/en/article/bambu-lab-lan-only-mode-and-developer-mode-how-to-enable-xa0hch/) (points to `wiki.bambulab.com/en/knowledge-sharing/enable-developer-mode`)
 - [OpenBambuAPI — MQTT](https://github.com/Doridian/OpenBambuAPI/blob/main/mqtt.md) · [video](https://github.com/Doridian/OpenBambuAPI/blob/main/video.md)
-- [Bambu Lab P1 chamber camera, scheda prodotto](https://www.3djake.com/bambu-lab/chamber-camera)
+- [Bambu Lab P1 chamber camera, product page](https://www.3djake.com/bambu-lab/chamber-camera)
 - [OrcaSlicer wiki — CLI mode](https://www.orcaslicer.com/wiki/cli/cli_mode) · [CLI actions](https://www.orcaslicer.com/wiki/cli/cli_actions) · [CLI misc](https://www.orcaslicer.com/wiki/cli/cli_misc)
-- [Printago — OrcaSlicer CLI reference](https://printago.io/blog/orca-slicer-cli-reference) (fonte terza)
+- [Printago — OrcaSlicer CLI reference](https://printago.io/blog/orca-slicer-cli-reference) (third-party source)
 - [vLLM recipes — Gemma 4](https://docs.vllm.ai/projects/recipes/en/latest/Google/Gemma4.html)
 - [Google AI — Gemma core docs](https://ai.google.dev/gemma/docs/core)
-- [CAXTON — codice](https://github.com/cam-cambridge/caxton) · [dataset](https://www.repository.cam.ac.uk/handle/1810/339869) · [paper](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9378646/)
-- [Bambu firmware features](https://bambuhub.net/articles/firmware-updates) (fonte terza) · [HA spaghetti detection per P1 (Obico)](https://github.com/nberktumer/ha-bambu-lab-p1-spaghetti-detection)
+- [CAXTON — code](https://github.com/cam-cambridge/caxton) · [dataset](https://www.repository.cam.ac.uk/handle/1810/339869) · [paper](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9378646/)
+- [Bambu firmware features](https://bambuhub.net/articles/firmware-updates) (third-party source) · [HA spaghetti detection for P1 (Obico)](https://github.com/nberktumer/ha-bambu-lab-p1-spaghetti-detection)
 - [Roboflow 3D_FDM_faults_detection](https://universe.roboflow.com/wangdada/3d_fdm_faults_detection-krkkr) · [AGH 3D printer anomalies](https://arxiv.org/pdf/2004.08817)

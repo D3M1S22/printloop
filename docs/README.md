@@ -1,28 +1,17 @@
-# Documentazione
+# Documentation
 
-## PrintLoop (branch `PrintLoop`)
+## PrintLoop (`PrintLoop` branch)
 
-Da leggere in ordine:
+Read in this order:
 
-1. [00_OVERVIEW](printloop/00_OVERVIEW.md): pitch, utente, scope, correzioni al concept originale
-2. [06_IMPLEMENTATION_STATUS](printloop/06_IMPLEMENTATION_STATUS.md): cosa funziona, risultati misurati, prossimi passi
-3. [05_API](printloop/05_API.md): contratto API per il frontend, stati, fixture
-4. [03_ARCHITECTURE](printloop/03_ARCHITECTURE.md): componenti, pre-flight, struttura del codice
-5. [02_DATA_STRATEGY](printloop/02_DATA_STRATEGY.md): difetti indotti, protocollo foto, rubrica, metriche
-6. [01_RESEARCH_STACK](printloop/01_RESEARCH_STACK.md): cosa dicono le fonti ufficiali (Bambu, OrcaSlicer, Gemma 4/vLLM, prior art, dataset)
-7. [04_PLAN_DECISIONS_RISKS](printloop/04_PLAN_DECISIONS_RISKS.md): decisioni, spike, piano, rischi
+1. [00_OVERVIEW](printloop/00_OVERVIEW.md): pitch, user, scope, corrections to the original concept
+2. [06_IMPLEMENTATION_STATUS](printloop/06_IMPLEMENTATION_STATUS.md): what works, measured results, next steps
+3. [05_API](printloop/05_API.md): API contract for the frontend, states, fixtures
+4. [03_ARCHITECTURE](printloop/03_ARCHITECTURE.md): components, pre-flight, code layout
+5. [02_DATA_STRATEGY](printloop/02_DATA_STRATEGY.md): induced defects, photo protocol, rubric, metrics
+6. [01_RESEARCH_STACK](printloop/01_RESEARCH_STACK.md): what the official sources say (Bambu, OrcaSlicer, Gemma 4/vLLM, prior art, datasets)
+7. [04_PLAN_DECISIONS_RISKS](printloop/04_PLAN_DECISIONS_RISKS.md): decisions, spikes, plan, risks
 
-Il team procede con il Modo 2 di PrintLoop (17/10). MarginSwarm resta sul branch `MarginSwarm` (`docs/marginswarm/`).
+The team is going ahead with PrintLoop Mode 2 (17/10). MarginSwarm stays on the `MarginSwarm` branch (`docs/marginswarm/`).
 
-## Hackathon
-
-- [HACKATHON_GUIDE](hackathon/HACKATHON_GUIDE.md): regole, requisito AMD, checklist di consegna
-- [TRACKS_AND_CHALLENGES](hackathon/TRACKS_AND_CHALLENGES.md): brief delle track
-- [PRIZES_AND_EVALUATION](hackathon/PRIZES_AND_EVALUATION.md): premi e criteri
-- [BRAINSTORMING](hackathon/BRAINSTORMING.md): prima fase di ideazione
-
-Aggiornamenti rispetto a questi documenti (pagina evento, 16/10): montepremi **17.000 $+** con i partner IMMENT e BAC Network; scadenza della submission **domenica 18/10 ore 12:00**.
-
-## Idee
-
-- [ideas/](ideas/README.md): storico delle idee valutate, con il concept originale di PrintLoop
+`hackathon/` (event rules, tracks, prizes) and `ideas/` (brainstorming and the original concepts) are the team's planning notes from before the project, kept as they were (in Italian).
