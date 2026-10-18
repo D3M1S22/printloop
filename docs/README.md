@@ -14,6 +14,7 @@ Read in this order:
 8. [07_VISION_MODEL](printloop/07_VISION_MODEL.md): the fine-tuned Gemma 4 E4B defect detector (data, contract, results, serving). Training code: [`finetune/`](../finetune/README.md), a separate component ready for AMD MI300X
 9. [08_MODE1_LIVE](printloop/08_MODE1_LIVE.md): Mode 1 implementation spec (frame sources, monitor, temporal filter, API, UI, evaluation)
 10. [09_MODE2_TWO_MODELS](printloop/09_MODE2_TWO_MODELS.md): Mode 2 with two models (E4B labels, 26B reasons, agreement rule, new classes)
+11. [10_FRICTION_LOG](printloop/10_FRICTION_LOG.md): problems outside the code (AMD droplet creation errors, missing credits)
 
 Working on Mode 1 or the two-model Mode 2 today: read 04 §3 (plan and cut lines), then 08 or 09, then 07 §3 (the detector contract).
 
