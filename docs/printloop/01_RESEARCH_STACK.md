@@ -61,7 +61,7 @@
 ### 2.3 Camera ⚠️
 - P1 and A1 do not use RTSP (that is for X1 and P2S): they use a **proprietary TCP stream over TLS, port 6000**. A 64-byte binary authentication packet holds the user `bblp` and the access code. Frames are **1280×720 JPEGs**, each preceded by a 16-byte header. (OpenBambuAPI)
 - Frame rate: ~**0.5 fps** according to the P1 chamber camera product page. ⚠️ to be measured
-- **Consequence:** the on-board camera is enough for gross defects (spaghetti, detachment, layer shift), not for stringing, under-extrusion or surface quality. Those go through Mode 2 with phone photos.
+- **Consequence:** the on-board camera is enough for gross defects (spaghetti, detachment, layer shift), not for stringing, under-extrusion or surface quality. Those go through Mode 2 with phone photos. (18/10: an expectation, not a measurement. Mode 1 runs the fine-tuned E4B on these frames and measures it on recorded prints, [08](08_MODE1_LIVE.md) §10.)
 
 ### 2.4 Files ⚠️
 - Implicit FTPS on **port 990** (same credentials), used to upload the 3MF to the SD card before `print.project_file`.

@@ -10,6 +10,7 @@
 | Filament | ❓ | A single material (e.g. PLA) for the whole test set: fewer variables |
 | Local Radeon RX 6700 XT GPU (12 GB) | ✅ | ROCm on RDNA2 is not officially supported (usually `HSA_OVERRIDE_GFX_VERSION` is needed) ⚠️. At most for development with a small model, not for the demo |
 | Public datasets | ✅ CAXTON (CC BY 4.0), ❓ Roboflow, AGH | See [01](01_RESEARCH_STACK.md) §6. None has photos of the part + preset + G-code |
+| FDM defect image datasets (Roboflow, Kaggle `nimbus200`, `wengmhu`, `mmandrew`, …) | ✅ used | ~30k images after cleaning (16k in the class-capped `v1` build), used to fine-tune the Gemma 4 E4B detector: sources, licences and cleaning in [07](07_VISION_MODEL.md) §2. They give the **class** of a defect, not its cause: the induced test set below is still the only ground truth of the cause |
 
 **Conclusion:** we produce the test set that matters ourselves, with defects **induced by a single known parameter**. It is the only way to get a ground truth of the *cause*, not just of the symptom.
 
@@ -28,10 +29,17 @@
 | First layer problems | `first_layer` | no |
 | Layer shift | `layer_shift` | yes |
 | Spaghetti / failed print | `spaghetti` | yes |
+| Layer separation (new, 18/10) | `layer_separation` | detector class (P1S untested) |
+| Blobs / zits (new, 18/10) | `blobs` | detector class (P1S untested) |
 | No defect | `none` | — |
 | Outside the taxonomy | `other` | — |
 
-`other` and `none` are mandatory: without them, the model forces every photo into a class. (`none` remains a model output; in the UI the operator closes a good reprint with "Reprint OK" instead of picking "No defect".)
+`other` and `none` are mandatory: without them, the model forces every photo into a class.
+
+The last column is now measured, not guessed, for the classes the fine-tuned E4B detector was trained on
+([07](07_VISION_MODEL.md) §5), but on public images, not on the P1S chamber camera. `bridge_sagging` and
+`overhang_curling` have no public training data. `layer_separation` and `blobs` come from the detector's datasets
+and enter the app taxonomy with Mode 2 B ([09](09_MODE2_TWO_MODELS.md) §4). (`none` remains a model output; in the UI the operator closes a good reprint with "Reprint OK" instead of picking "No defect".)
 
 ---
 
@@ -122,6 +130,28 @@ The values above are a format example, not measured data.
 With ~10 cases the numbers are small: we present them as counts (e.g. "7/9"), not as percentages with decimals.
 
 ---
+
+## 5bis. Mode 1 data: recorded prints
+
+The detector has never seen the P1S chamber camera. Before trusting Mode 1 on a printer ([08](08_MODE1_LIVE.md) §10):
+
+- **Record** prints with the `p1s` source and `record_all` (one frame every `interval_s`, ~110 MB per 2-hour print):
+  a few normal prints (false alerts) and the induced-defect coupons of §3, plus one print left to fail on purpose
+  (spaghetti on a part with no supports, or a detached part on a cold bed).
+- **Label** a sample of frames in a `frame_id,defects` CSV, blind to the case manifest like the photos (§3.1).
+- **Metrics** from `printloop live replay <dir> --report`:
+
+| Metric | Definition |
+| :-- | :-- |
+| Per-frame accuracy | primary class against the labels, and false positives on clean frames |
+| False alerts per print | alerts raised on prints with no labelled defect, per group (pause / warning) |
+| Time to alert | from the first labelled defective frame to the alert |
+| Missed failures | prints with a labelled pause-worthy defect and no `pause_proposed` alert |
+
+- Until real recordings exist, the demo replays a `nimbus200` recording from the fine-tuning **test** split (never
+  used for training), cited as such.
+- Recorded and labelled frames are also the training data of the next detector version (P1S domain, bridges and
+  overhangs).
 
 ## 6. CAXTON (stretch, ROCm benchmark)
 

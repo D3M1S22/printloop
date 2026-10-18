@@ -1,7 +1,8 @@
 # 07. Vision model: Gemma 4 E4B fine-tuned for FDM defects (Mode 1)
 
-> Written on 18 Oct 2026. Status: **model trained and evaluated, served on llama.cpp; Mode 1 not implemented
-> yet.** This document has everything needed to build Mode 1 and to decide how the model can also help Mode 2.
+> Written on 18 Oct 2026. Status: **model trained and evaluated, served on llama.cpp; not used by the app yet.**
+> This document is the reference for the model itself (data, contract, results, serving). How the app uses it:
+> Mode 1 in [08_MODE1_LIVE.md](08_MODE1_LIVE.md), Mode 2 in [09_MODE2_TWO_MODELS.md](09_MODE2_TWO_MODELS.md).
 > Training code: [`finetune/`](../../finetune/README.md) (separate component, AMD MI300X ready).
 
 ---
@@ -17,6 +18,7 @@
 | Served on llama.cpp (GGUF Q8_0) | primary class **90.9%**, false positives on clean images 14.5%, **~0.75 s per frame** |
 | Against Gemma 4 26B-A4B stock (same 200 images, same prompt) | **88.5% vs 24.5%** primary class, 0.73 s vs 2.6 s per image |
 | Not covered | bridge sagging and overhang curling (no public training data), severity, causes, P1S chamber frames (not in the data yet) |
+| Hardware of the figures | training and PyTorch evaluation on CUDA (bf16 GPU), serving on a Tesla V100 16 GB. **Nothing measured on AMD yet**: the MI300X container is ready but unrun (`finetune/README.md`) |
 
 ---
 
@@ -26,7 +28,7 @@
   on a mix of nozzle-cam frames, fixed webcams, phone photos and close-ups (§2).
 - **Output:** the visible defect classes in a fixed order and the most urgent one (`primary`). No severity, no
   location, no cause, no confidence field: those stay with the deterministic logic (Mode 1) and with the 26B
-  model (Mode 2). A calibrated confidence can be derived from the token log-probabilities (§7.6).
+  model (Mode 2). A calibrated confidence can be derived from the token log-probabilities ([08](08_MODE1_LIVE.md) §10).
 - **Intended use:** PrintLoop Mode 1, one frame every N seconds from the printer camera, small enough to run
   locally next to the printer (8 GB in Q8_0, 5.3 GB in Q4_K_M, plus 1 GB for the vision projector).
 - **Not a replacement for the Mode 2 diagnosis**: it says *what* is visible, not *how bad* or *why*. §8 discusses
@@ -148,8 +150,9 @@ Answer with JSON only: {"defects": [...], "primary": "<first defect or none>"}
    "primary": {"type": "string", "enum": ["spaghetti", "warping", "layer_shift", "layer_separation", "bridge_sagging", "overhang_curling", "stringing", "blobs", "under_extrusion", "over_extrusion", "first_layer", "other", "none"]}}}
 ```
 
-The existing `printloop.llm.chat_json(messages, schema, ...)` already sends exactly this kind of request; it only
-needs its own endpoint settings (§7.5).
+The existing `printloop.llm.chat_json(messages, schema, ...)` already builds this kind of request (images as
+data URLs, `response_format` with the schema). For the detector it also needs its own endpoint, a short
+timeout, no retry without the schema and its own telemetry: [08](08_MODE1_LIVE.md) §4.
 
 ---
 
@@ -319,142 +322,32 @@ needed there. Not measured yet on MI300X.
 
 ---
 
-## 7. Mode 1 design (to implement)
+## 7. Mode 1 (summary)
 
-Goal: watch a running print through the printer camera, classify one frame every **`interval_s` seconds**
-(operator setting, not tied to the inference speed), and turn persistent problems into an alert, a proposed pause
-(never automatic) and evidence for a Mode 2 case.
+The full implementation spec is [08_MODE1_LIVE.md](08_MODE1_LIVE.md). In short:
 
-### 7.1 Components
+- one frame every `interval_s` seconds (default 10 s, operator setting, never tied to the inference speed) from a
+  frame source: a **replay** folder (development, tuning, demo), the **P1S** camera on TLS :6000, or a snapshot URL;
+- the request of §3, one image per call, no queueing (a tick is skipped while a call is running or the frame did
+  not change);
+- a **temporal filter** (k of the last n frames per class) and a policy: `spaghetti`, `warping`, `layer_shift`,
+  `other` → **proposed pause** at 3 of 4 (sent only after an operator click); the other trained classes → warning
+  at 4 of 6; `bridge_sagging` and `overhang_curling` → log only. Clear after 6 negative frames;
+- evidence frames saved under `runs/live/<session>/` and attachable to a Mode 2 case.
 
-```mermaid
-flowchart LR
-    Cam["P1S camera :6000<br/>JPEG 1280×720"] --> Grab["frame grabber<br/>keeps only the latest frame"]
-    MQTT["MQTT push_status<br/>layer, %, state"] --> Ctx["print context"]
-    Grab -- "every interval_s" --> Det["detector client<br/>E4B, JSON schema"]
-    Det --> Filt["temporal filter<br/>k of n per class"]
-    Ctx --> Filt
-    Filt --> Pol["policy<br/>alert / propose pause"]
-    Pol --> UI["UI: live page, alerts,<br/>Pause (operator click)"]
-    Pol --> Ev[("evidence frames<br/>runs/live/<print>/")]
-    Ev --> Case["Mode 2 case<br/>(photos = evidence frames)"]
-```
+## 8. Using the model in Mode 2 (summary)
 
-- **Frame grabber:** P1S camera stream (TLS on port 6000, `bblp` + access code, JPEG frames 1280×720, about 0.5–1
-  fps: [01_RESEARCH_STACK](01_RESEARCH_STACK.md) §2.3). Keep only the latest frame in memory; the detector never
-  queues frames.
-- **Scheduler:** `interval_s` (default 10 s, minimum 2 s with Q8_0 on one GPU) and `paused_when` printer states
-  (`gcode_state` not RUNNING → no inference). If an inference is still running when the next tick comes, skip the
-  tick: never pile up requests.
-- **Detector client:** the request of §3, one image per call. Store the raw answer, latency and frame hash.
-- **Context from MQTT:** `layer_num`, `mc_percent`, `gcode_state`. Ignore detections in the first layers for
-  classes that need height (`stringing`, `layer_shift`), and use `first_layer` only while `layer_num` ≤ 2.
+The model names defects much better than the stock 26B (§5.4) but gives no severity, evidence or cause. Options
+considered: A. 26B alone (today); B. E4B labels each photo and the 26B gets the labels as a hint and assigns
+severity, evidence and the operator question; C. both classify and disagreement goes to the operator.
 
-### 7.2 Temporal filter and policy
+**Chosen: B with C's disagreement rule.** Spec, agreement matrix, prompt text, fallbacks and evaluation plan:
+[09_MODE2_TWO_MODELS.md](09_MODE2_TWO_MODELS.md). One change from the first draft of this section: `blobs` is **not**
+mapped to the `over_extrusion` candidates (lowering the flow on a part whose flow is right causes under-extrusion):
+it escalates in v1, and `layer_separation` gets `nozzle_temperature` ↑ (09 §4).
 
-One frame is not enough (5–15% false positives per frame on clean parts, §5). Suggested defaults:
-
-| Class group | Persistence to raise | Action |
-| :-- | :-- | :-- |
-| `spaghetti`, `warping` (detached part), `layer_shift`, `other` | 3 of the last 4 frames | **propose a pause** (UI button, `print.pause` only after the click) + notify |
-| `layer_separation`, `stringing`, `blobs`, `under_extrusion`, `over_extrusion`, `first_layer` | 4 of the last 6 frames | alert in the UI, keep the frames as evidence, suggest a Mode 2 case after the print |
-| `bridge_sagging`, `overhang_curling` | — | not reliable (no training data): log only |
-
-An alert clears after 6 consecutive frames without the class. Keep the thresholds in config and re-tune them on
-recorded P1S prints (§7.6). `print.stop` is never sent automatically (project rule).
-
-### 7.3 Contract (proposed `models.py` additions)
-
-```python
-class LiveDetection(BaseModel):
-    frame_id: str                     # sha1 of the JPEG
-    taken_at: str                     # ISO time of the frame
-    layer_num: int | None = None
-    progress: float | None = None     # mc_percent
-    defects: list[DefectClass] = []
-    primary: DefectClass = "none"
-    model: str
-    latency_ms: float
-
-class LiveAlert(BaseModel):
-    defect: DefectClass
-    level: Literal["info", "warning", "pause_proposed"]
-    since: str
-    frames: list[str]                 # frame ids kept as evidence
-    cleared_at: str | None = None
-```
-
-### 7.4 API and UI (proposed)
-
-| Method | Path | Body / result |
-| :-- | :-- | :-- |
-| `POST` | `/api/live/start` | `{"interval_s": 10}` → monitor state |
-| `POST` | `/api/live/stop` | — |
-| `GET` | `/api/live` | state, last detection, active alerts, settings |
-| `GET` | `/api/live/frames/{id}` | JPEG of an evidence frame |
-| `POST` | `/api/live/pause` | operator-confirmed `print.pause` |
-| `POST` | `/api/live/case` | creates a Mode 2 case with the evidence frames as photos |
-
-UI: a "Live" page with the latest frame, the detected classes, the alert list with the evidence frames, the
-interval setting and the pause button.
-
-### 7.5 Configuration (proposed `.env` keys)
-
-```bash
-# Mode 1 detector (fine-tuned Gemma 4 E4B, OpenAI-compatible: llama-server or vLLM)
-VISION_LLM_BASE_URL=http://<host>:8080/v1
-VISION_LLM_API_KEY=
-VISION_LLM_MODEL=Gemma-4-E4B-3dPrint-v1-Q8
-VISION_LLM_TIMEOUT_S=30
-MODE1_INTERVAL_S=10
-MODE1_PAUSE_K=3
-MODE1_PAUSE_N=4
-MODE1_ALERT_K=4
-MODE1_ALERT_N=6
-```
-
-A second `LLMConfig` instance (or a `model=` / `base_url=` argument to `llm.chat_json`) is enough; the existing
-client already supports images, JSON schema and telemetry.
-
-### 7.6 Before trusting it on the printer
-
-1. **Record real prints** with the frame grabber (normal prints and the induced-defect coupons of
-   [02_DATA_STRATEGY](02_DATA_STRATEGY.md) §3) and label a few hundred frames: this is the only test of the
-   chamber-camera domain, which is not in the training data.
-2. Measure per-frame accuracy and **false alerts per print** with the temporal filter; tune k/n.
-3. Optional confidence: request `logprobs` and use the probability of the first token of `primary` as a score;
-   calibrate a threshold on the recorded frames.
-4. The recorded frames are also the training data of the next version (bridge and overhang classes, P1S domain).
-
----
-
-## 8. Using the model in Mode 2
-
-Mode 2 sends 1–4 phone photos of the finished part to Gemma 4 26B-A4B (`diagnose.py`), which returns classes,
-**severity 0–3**, evidence and a question for the operator, and later chooses the patch. The fine-tuned E4B is much
-better at *naming* the defects (§5.4) but gives no severity, no evidence text and does not reason about the
-project. Three options:
-
-| Option | How | Pros | Cons |
-| :-- | :-- | :-- | :-- |
-| A. Keep the 26B alone | as today | no change | weak classifier on the images (24.5% vs 88.5% in §5.4) |
-| B. E4B classifies, 26B reasons | the E4B labels each photo; the 26B gets the photos **and** the E4B labels in the prompt, and only assigns severity, evidence and the operator question; the patch step uses the 3MF settings and the operator note | best classification; the 26B does what it is good at | two calls (+0.75 s per photo); the 26B may still override the labels |
-| C. Ensemble with agreement | both classify; agreement → higher confidence, disagreement → `needs_more_info` with the two candidates in the question to the operator | uses disagreement as a signal, keeps the human in the loop | more logic, more UI |
-
-**Recommendation: B, with C's disagreement rule.** Concretely in `diagnose.diagnose_llm`:
-1. call the E4B once per photo (§3 request) and take the union of `defects`, `primary` = most urgent;
-2. add to the 26B user message: "An FDM defect classifier fine-tuned on public datasets reports: photo
-   `side45.jpg`: stringing; photo `top.jpg`: none. Use it as a strong hint, confirm against the photos, and
-   assign severity and evidence";
-3. if the 26B `primary` is not among the E4B classes and the E4B saw a defect, lower the confidence below
-   `PRINTLOOP_MIN_CONFIDENCE` so the case goes to `needs_info`.
-
-Caveats: Mode 2 photos are close-ups of finished parts; only part of the training data looks like that (phone
-photos, calibration blocks), so measure on the PrintLoop test set (`printloop.eval diagnosis`) before switching.
-Map the two new classes for the KB until it has entries for them: `blobs` → `over_extrusion` candidates
-(or escalate), `layer_separation` → escalate (cause is usually temperature/cooling/adhesion between layers).
-
----
+Caveat that stays: Mode 2 photos are close-ups of finished parts, only part of the training data looks like that,
+so measure on the PrintLoop test set before claiming a Mode 2 gain.
 
 ## 9. Known limits
 
@@ -466,17 +359,19 @@ Map the two new classes for the KB until it has entries for them: `blobs` → `o
 - **One image per request**: no temporal context (two frames per request is a possible next step for spaghetti
   and detachment, which are changes over time).
 
-## 10. Changes to make in the app (checklist)
+## 10. Changes to make in the app
 
-- [ ] `taxonomy.py`: add `blobs` and `layer_separation` (labels, descriptions as in §3.1); KB entries (escalate or
-      map, §8).
-- [ ] `config.py`: `VisionLLMConfig` from the `VISION_LLM_*` / `MODE1_*` keys (§7.5); `.env.example`.
-- [ ] `llm.py`: allow a per-call endpoint/model (or a second client) and `chat_template_kwargs`.
-- [ ] `mode1.py` (new): frame grabber, scheduler, detector client, temporal filter, policy; MQTT read-only client.
-- [ ] `models.py`: `LiveDetection`, `LiveAlert` (§7.3); `api.py`: `/api/live*` (§7.4); web: Live page.
-- [ ] `diagnose.py` (Mode 2, optional): option B of §8 behind a flag, then `eval diagnosis` A vs B.
-- [ ] `infra/`: E4B server ([`serve_vision_e4b.sh`](../../infra/serve_vision_e4b.sh) or the vLLM command of §6.3).
-- [ ] Tests with a faked detector (sequence of answers → expected alerts).
+Checklists: Mode 1 in [08](08_MODE1_LIVE.md) §11, Mode 2 in [09](09_MODE2_TWO_MODELS.md) §9. Order and cut lines for
+today: [04](04_PLAN_DECISIONS_RISKS.md) §3.
+
+Open points found while reviewing this model for the integration:
+- **Endpoint names.** `infra/serve_vision_e4b.sh` serves on port **8082** with the alias `printloop-vision-e4b`; the
+  router preset of §6.2 is called `Gemma-4-E4B-3dPrint-v1-Q8`; the vLLM command of §6.3 uses port 8001. The app
+  reads one `VISION_LLM_BASE_URL` / `VISION_LLM_MODEL` pair ([08](08_MODE1_LIVE.md) §9), so any of the three works.
+- **`v1b`.** The development router also lists `Gemma-4-E4B-3dPrint-v1b-Q8`, which this document does not describe.
+  Either document it (what changed, metrics) or remove it, so that the demo uses the measured `v1`.
+- **One GPU, two models.** See §6.2 and [08](08_MODE1_LIVE.md) §9: Mode 1 needs its own detector server unless both
+  models run on the MI300X.
 
 ## 11. Reproducing and retraining
 

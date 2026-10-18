@@ -1,6 +1,8 @@
 # 06. Implementation status (Mode 2)
 
-> Updated on 18 Oct 2026. Mode 1 (live control) remains "if there is time", by team decision.
+> Updated on 18 Oct 2026, 08:30. Mode 2 is implemented. A fine-tuned Gemma 4 E4B defect detector is trained and
+> served ([07](07_VISION_MODEL.md)); **Mode 1** ([08](08_MODE1_LIVE.md)) and **Mode 2 with two models**
+> ([09](09_MODE2_TWO_MODELS.md)) are specified and are today's work ([04](04_PLAN_DECISIONS_RISKS.md) §3).
 
 ## 1. What works
 
@@ -26,6 +28,9 @@ The Mode 2 loop is implemented and tested end to end with the real slicer:
 | Evaluation (offline patches, diagnosis with photos) and AMD benchmark | `eval.py`, `bench.py` | ✅ patches, ❓ diagnosis and benchmark (need photos and the droplet) |
 | Tests | `tests/` | ✅ 40 tests (unit + integration with the slicer + faked LLM path) |
 | Language | everywhere | ✅ code, UI, backend messages, LLM prompts and project docs in English |
+| **Fine-tuned Gemma 4 E4B detector** (one image → defect classes, 12 classes + `none`) | `finetune/`, [07](07_VISION_MODEL.md) | ✅ trained and evaluated: 93.8% primary class in PyTorch, 90.9% as GGUF Q8_0 on llama.cpp (in-distribution test); ✅ served (`infra/serve_vision_e4b.sh`, router preset); ❌ not used by the app; ❓ never run on AMD |
+| **Mode 1** live monitoring (frame sources, monitor, temporal filter, alerts, Live page) | [08](08_MODE1_LIVE.md) | 📝 specified, not implemented |
+| **Mode 2 with two models** (E4B labels at upload, 26B with the hint, agreement rule, 2 new classes) | [09](09_MODE2_TWO_MODELS.md) | 📝 specified, not implemented |
 
 ## 2. Spikes: outcome
 
@@ -33,7 +38,7 @@ The Mode 2 loop is implemented and tested end to end with the real slicer:
 | :-- | :-- |
 | S2 slicer CLI | ✅ **Passed with BambuStudio 2.8.2** (OrcaSlicer was not installed on the development machine at first; same CLI). Headless slicing in ~1 s for the coupon, ~1.1 s for a 150k-line test print. Patches are applied by rewriting `Metadata/project_settings.config` in a copy of the 3MF. G-code formats read from real files: `; FEATURE: <name>`, `; CHANGE_LAYER`, a `CONFIG_BLOCK` with the effective settings, `M106` without `P` = part fan |
 | S1 Gemma vision on AMD | ❓ Waiting for the droplet keys. Local alternative: `infra/serve_local_llama.sh` |
-| S3 printer | out of scope (Mode 1) |
+| S3 printer | not done: needed for the P1S camera source of Mode 1 (P1, [08](08_MODE1_LIVE.md) §2.2); `PRINTER_*` not configured yet |
 | S4 test set prints | ❓ The 3MFs ready to print are generated with `printloop testset` (~12 min each) |
 | S5 past cases | found versioned user presets in OrcaSlicer (`PA6-CF Tuned V2…V5`, `PP … Fixed Cooling`), **for X1C**: candidates for a qualitative test |
 
@@ -112,10 +117,20 @@ Fix: `project.mark_different()` declares every key patched in the case, includin
 
 ## 7. Next steps (in order)
 
-1. **Gemma endpoint** (MI300X droplet with `infra/serve_gemma_vision.sh`, or local llama-server) → `printloop diagnose` on real photos, smoke test of the JSON schema with images.
-2. **Print the test set** (`data/testset/*/slice/sliced.3mf`), photograph with the protocol in [02](02_DATA_STRATEGY.md) §3.1 into `data/testset/<case>/photos/`, then `eval diagnosis`.
-3. `eval patches --mode llm`: rules vs Gemma (C2 and the C5/C6 pair).
-4. `printloop.bench` on the MI300X: p50/p95 latency and diagnoses/min at concurrency 1/4/8 → AMD Evidence section.
-5. Video (the UI already carries the demo, offline too), deck.
-6. **Mode 1** with the fine-tuned E4B detector: design, contract, thresholds and checklist in [07_VISION_MODEL](07_VISION_MODEL.md) §7 and §10. Optionally, Mode 2 option B (E4B classifies, 26B reasons) behind a flag and `eval diagnosis` A vs B ([07](07_VISION_MODEL.md) §8).
-7. **Fine-tuning on the MI300X** (`finetune/`, [README](../../finetune/README.md)): `bash finetune/scripts/mi300x.sh all`, then keep `finetune/results/<run>/train_metrics.json` for the AMD Evidence section.
+Today (18/10), with the cut lines of [04](04_PLAN_DECISIONS_RISKS.md) §3:
+
+1. Shared detector client (`VISION_LLM_*`, m1-v1 prompt), two new classes and their KB entries ([09](09_MODE2_TWO_MODELS.md) §4).
+2. **Mode 1 P0** on the replay source: monitor, temporal filter, alerts, `/api/live*`, Live page ([08](08_MODE1_LIVE.md)).
+3. **Mode 2 B**: detections at upload, hint to the 26B, agreement rule ([09](09_MODE2_TWO_MODELS.md)).
+4. Serve both models on the MI300X if the droplet is available, otherwise E4B on its own llama-server; state the
+   AMD evidence honestly in the README ([04](04_PLAN_DECISIONS_RISKS.md) R13).
+5. Video and deck on the replay demo; README updated.
+
+After the hackathon:
+
+6. P1S camera source and MQTT status; record real prints with `record_all` and tune the filter ([08](08_MODE1_LIVE.md) §10).
+7. Print the test set, photograph it ([02](02_DATA_STRATEGY.md) §3.1), `eval diagnosis` A vs B ([09](09_MODE2_TWO_MODELS.md) §8).
+8. `eval patches --mode llm`: rules vs Gemma (C2 and the C5/C6 pair).
+9. `printloop.bench` on the MI300X: p50/p95 latency and diagnoses/min at concurrency 1/4/8.
+10. Fine-tuning on the MI300X (`bash finetune/scripts/mi300x.sh all`), keep `finetune/results/<run>/train_metrics.json`;
+    next detector version with P1S frames and bridge/overhang data ([07](07_VISION_MODEL.md) §9).

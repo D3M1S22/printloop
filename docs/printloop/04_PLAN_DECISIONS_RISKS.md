@@ -3,6 +3,8 @@
 > Situation on the **evening of 16 Oct 2026**: code freeze Saturday 17/10 23:59, submission **Sunday 18/10 at 12:00**, team of 2 (backend/ML and React/Vite frontend), on site in Rome on Saturday and Sunday.
 >
 > **Update 17/10:** the team chose to go ahead with PrintLoop Mode 2 (Mode 1 "if there is time"). S2 passed with BambuStudio; pipeline implemented. Status and next steps: [06_IMPLEMENTATION_STATUS.md](06_IMPLEMENTATION_STATUS.md).
+>
+> **Update 18/10, 08:30:** a fine-tuned Gemma 4 E4B detector is ready ([07](07_VISION_MODEL.md)). The team goes ahead with **Mode 1** (live monitoring, [08](08_MODE1_LIVE.md)) and **Mode 2 with two models** (E4B detects, 26B reasons, [09](09_MODE2_TWO_MODELS.md)). The plan for the hours left before the 12:00 submission is §3; the older plan is kept below it for the record.
 
 ---
 
@@ -35,7 +37,31 @@
 
 ---
 
-## 3. Plan (if we go with PrintLoop)
+## 3. Plan for 18 Oct (Mode 1 + two-model Mode 2)
+
+Assumes the **12:00 submission** still holds: ~3.5 hours from 08:30, of which the last 45 minutes go to README, video
+and submission. Two people: backend/ML and frontend. Estimates include tests.
+
+| When | Backend / ML | Frontend | Infra / data |
+| :-- | :-- | :-- | :-- |
+| 08:30–09:00 | shared detector client (`VISION_LLM_*`, m1-v1 prompt, own telemetry), `taxonomy` + 2 classes, KB entries ([09](09_MODE2_TWO_MODELS.md) §4, §9) | Live page on a hand-written fixture of the session object ([08](08_MODE1_LIVE.md) §8) | E4B on **its own** server (`infra/serve_vision_e4b.sh`), not the single-model router; replay folder from a `nimbus200` **test-split** recording ([08](08_MODE1_LIVE.md) §2.1) |
+| 09:00–10:00 | **Mode 1 P0**: replay source, monitor thread, policy, session on disk, `/api/live*`, `printloop live replay --report` | Live page wired to the API: frame, classes, alerts with evidence, start/stop, interval | if the droplet is available: both models on the MI300X with vLLM (0.75 / 0.15) for the AMD evidence |
+| 10:00–10:45 | **Mode 2 B**: detections at upload, hint in the 26B prompt, agreement rule, health field | detector labels on photos, agreement badge, quick picks on `needs_info`, health badge | — |
+| 10:45–11:15 | integration, demo run-through on replay; regenerate fixtures | polish, screenshots | record the demo |
+| **11:15** | **code freeze** | | |
+| 11:15–12:00 | README (Mode 1, two models, AMD evidence stated honestly), deck, submission | video | — |
+
+### Cut lines for today
+- **P0:** shared detector client; Mode 1 on the replay source with alerts and the Live page; Mode 2 B with the
+  agreement rule; tests for policy and agreement matrix.
+- **P1 (only if the printer is reachable from where the API runs):** P1S camera source, MQTT read-only status,
+  linking a session to a case and "use evidence as reprint photos".
+- **P2:** `print.pause` after a click, new case from a session, snapshot-URL source, logprob confidence, re-running
+  the fine-tuning on the MI300X.
+- If backend is behind at 10:00: drop session history and attach from Mode 1, keep the live alerts; Mode 2 B still
+  goes in (it is the smaller change with the larger effect).
+
+## 3bis. Original plan (16/10, kept for the record)
 
 | When | Backend / ML | Frontend | Printer |
 | :-- | :-- | :-- | :-- |
@@ -72,6 +98,13 @@
 | P-12 | A good reprint is closed with an explicit **"Reprint OK"** action (also from the case list), not by picking "No defect" in the diagnosis menu | "No defect" diagnosis + save | one click instead of three; "No defect" is not a defect to choose | ✅ 18/10 |
 | P-13 | The operator can **rewind** to any earlier step or iteration; discarded files are **archived** in `discarded/`, never deleted | no going back; deleting the discarded files | mistakes happen (wrong diagnosis, approved too early); photos of physical prints cannot be recreated | ✅ 18/10 |
 | P-14 | Project, UI and docs in **English** | Italian | the submission and the judges are international | ✅ 18/10 |
+| P-15 | **Mode 1 in scope** with the fine-tuned **Gemma 4 E4B** as the per-frame detector; 26B not used per frame | 26B every ~30 s with a reduced taxonomy (03 §6, first draft) | 88.5% vs 24.5% primary class and 0.73 s vs 2.6 s per image ([07](07_VISION_MODEL.md) §5.4); small enough to run next to the printer | ✅ 18/10 |
+| P-16 | Mode 1 alerts go through a **k-of-n temporal filter**; pause **proposed**, sent only after a click; never `print.stop` | per-frame alerts; automatic pause | 5–15% false positives per frame would mean several false pauses per print ([08](08_MODE1_LIVE.md) §5.1) | ✅ 18/10 |
+| P-17 | First Mode 1 frame source = **replay** of a recorded folder; P1S camera second | P1S first | demo and tests independent of the printer and of the venue network; same folder format for tuning | ✅ 18/10 |
+| P-18 | Monitor as a **background thread in the API process**, state on disk, UI polling every 2 s | separate worker, WebSocket | one process for the demo; one frame per 10 s does not need push | ✅ 18/10 |
+| P-19 | **Mode 2 = option B + disagreement rule**: E4B labels each photo at upload, the 26B gets the labels as a hint and assigns severity/evidence; disagreement → `needs_info` | 26B alone; ensemble only | each model does what it is good at; disagreement is a signal for the human ([09](09_MODE2_TWO_MODELS.md) §3) | ✅ 18/10 |
+| P-20 | New classes: `layer_separation` → `nozzle_temperature` ↑; `blobs` → escalate | `blobs` → `over_extrusion` candidates (07 first draft) | flow ↓ on a part with the right flow causes under-extrusion; zit causes are not verifiable on the G-code yet | ✅ 18/10 |
+| P-21 | Detector on **its own server** (or both models on the MI300X), never sharing a one-model-at-a-time router with the 26B while Mode 1 runs | shared router | every swap costs tens of seconds ([08](08_MODE1_LIVE.md) §9) | ✅ 18/10 |
 
 ---
 
@@ -89,10 +122,26 @@
 | R8 | Public vLLM endpoint | M | High | always `--api-key` |
 | R9 | Printer access code committed | L | High | `.env` in `.gitignore`, `.env.example` without values |
 | R10 | The team splits between two projects | M | High | a clear decision at 10:00 on Saturday, no parallel work on both |
+| R11 | **Time on 18/10**: Mode 1 and Mode 2 B in ~2.5 hours of coding | H | **High** | cut lines §3; Mode 1 on replay first; freeze at 11:15 |
+| R12 | The detector has **never seen P1S chamber frames**: unknown false alerts on the real printer | H | Medium | temporal filter, pause only on click, tune on recorded prints ([08](08_MODE1_LIVE.md) §10); say so in the demo |
+| R13 | **No AMD measurement of the E4B** (training on CUDA, serving on a V100) | H | **High** for the AMD prize | serve both models on the MI300X with vLLM if the droplet is up, or run `finetune` `smoke` + `eval` there; otherwise state it plainly in the README |
+| R14 | Mode 1 and Mode 2 on one single-model llama.cpp router evict each other | M | Medium | separate E4B server (P-21); health warning |
+| R15 | Demo replay comes from a public dataset used for training | M | Medium | pick a recording from the **test** split (never seen) and cite the dataset; switch to a P1S recording when one exists |
+| R16 | The app's copy of the m1-v1 prompt drifts from `finetune/` | L | Medium | unit test comparing the strings; `PROMPT_VERSION` in every detection row |
+| R17 | The two models disagree often on PrintLoop photos → many `needs_info` | M | Medium | measure A vs B ([09](09_MODE2_TWO_MODELS.md) §8); `MODE2_DETECTOR=off` switch |
 
 ---
 
 ## 6. Open questions
+
+**18/10:**
+- Is the submission still **12:00 today**? The plan in §3 depends on it.
+- Is the P1S reachable from where the API will run (same LAN, LAN-only + Developer Mode, firmware ≥ 01.08.02.00)? `PRINTER_IP`, `PRINTER_SERIAL`, `PRINTER_ACCESS_CODE` are not set yet.
+- Which GPU serves the E4B during the demo (its own llama-server, the MI300X, the local Radeon)?
+- What is `Gemma-4-E4B-3dPrint-v1b-Q8` on the router, and which variant goes in the demo ([07](07_VISION_MODEL.md) §10)?
+- Are the droplet keys available, for the AMD evidence (R13)?
+
+**16/10:**
 
 1. **Where will the printer be** on Saturday and Sunday? Who starts the prints while the team is in Rome?
 2. Current P1S firmware (Developer Mode from 01.08.02.00)?

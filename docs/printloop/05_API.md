@@ -136,3 +136,31 @@ Error codes: `404` missing case or file · `409` action not allowed in the state
 ```
 
 Hints for the approval screen: show `changes` as a diff (`label`: `before` → `after` `unit`, with `reason`), the `checks` as a green/red list (`detail` is already readable), `side_effects` as "+10 s, +0 g", any `rejected_attempts` ("attempts discarded by the system") and `validation.warnings`. Operator edits (`edits`) use the KB `key`s (`/api/kb` → `params` for label, unit, bounds and step).
+
+## 4. Planned (not implemented yet)
+
+These additions are specified but not in the code. The frontend can build on them with hand-written fixtures; the
+backend will match these shapes.
+
+**Mode 1, live monitoring** ([08_MODE1_LIVE.md](08_MODE1_LIVE.md) §8, full session object there):
+
+| Method | Path | Body | Response |
+| :-- | :-- | :-- | :-- |
+| `GET` | `/api/live` | — | current session or `null`; poll every 2 s while running |
+| `POST` | `/api/live/start` | `{"source": "replay"\|"p1s"\|"url", "replay_dir"?, "url"?, "interval_s"?, "case_id"?, "record_all"?}` | session |
+| `POST` | `/api/live/stop` | — | session |
+| `POST` | `/api/live/alerts/{alert_id}/dismiss` | `{"reason"?}` | session |
+| `POST` | `/api/live/pause` | `{"alert_id"?}` | session; `print.pause` over MQTT, only after the operator's click |
+| `POST` | `/api/live/attach` | `{"case_id"?, "frames"?}` | **Case** with the evidence frames as photos of its current iteration |
+| `GET` | `/api/live/sessions` · `/api/live/sessions/{id}` | — | past sessions |
+| `DELETE` | `/api/live/sessions/{id}` | — | `{"deleted": id}` |
+| `GET` | `/api/live/frames/{session_id}/{frame_id}` | — | JPEG |
+
+**Mode 2 with two models** ([09_MODE2_TWO_MODELS.md](09_MODE2_TWO_MODELS.md) §6):
+
+- `iterations[].detections[]`: `{photo, defects, primary, model, latency_ms, error}`, one per photo, filled by
+  `POST /photos` (best effort).
+- `iterations[].diagnosis.detector`: `{defects, primary, agreement: "agree"|"disagree"|"unavailable"}`. A
+  disagreement sets `needs_more_info` and the case goes to `needs_info` with both candidates in `message`.
+- `GET /api/health`: `vision_llm` (`mode`, `model`, `base_url`) next to `llm`.
+- `GET /api/taxonomy` and `DefectClass`: two new classes, `layer_separation` and `blobs`.

@@ -1,7 +1,7 @@
 # 00. PrintLoop: project direction
 
 > **Track:** 1, Intelligent Industry · **Target prizes:** AMD Main · Google (Gemma on AMD) · Vibe Generation
-> **Status (17 Oct 2026):** Mode 2 implemented and tested end to end with the real slicer; Gemma diagnosis still to be tried on the AMD endpoint. Mode 1 "if there is time". Details in [06_IMPLEMENTATION_STATUS.md](06_IMPLEMENTATION_STATUS.md).
+> **Status (18 Oct 2026):** Mode 2 implemented and tested end to end with the real slicer. A fine-tuned Gemma 4 E4B defect detector is trained ([07](07_VISION_MODEL.md)); **Mode 1** (live monitoring, [08](08_MODE1_LIVE.md)) and **Mode 2 with two models** ([09](09_MODE2_TWO_MODELS.md)) are specified and being built. Details in [06_IMPLEMENTATION_STATUS.md](06_IMPLEMENTATION_STATUS.md).
 > **Original concept:** [`../ideas/01_printloop.md`](../ideas/01_printloop.md). This document updates it with what the official sources showed.
 
 ---
@@ -27,41 +27,49 @@ Neither turns an observed defect into a **persistent, verified change to the pre
   - iterations needed to reach an acceptable part, against a baseline without PrintLoop;
   - grams of filament and machine minutes per iteration;
   - defect severity before and after, measured with the same rubric;
-  - diagnosis accuracy on induced defects with a known cause.
+  - diagnosis accuracy on induced defects with a known cause;
+  - Mode 1: false alerts per print and time from the first visible defect to the alert.
 
 ## 4. What makes the project different
 
-1. **The model chooses, it does not invent.** Gemma 4 classifies the defect into a closed taxonomy and chooses among candidate parameters supplied by a deterministic knowledge base. Range and direction of the changes are constrained.
+1. **The models choose, they do not invent.** A small Gemma 4 E4B, fine-tuned on public FDM defect datasets, names the defects on each image; Gemma 4 26B judges severity and evidence and chooses among candidate parameters supplied by a deterministic knowledge base. Range and direction of the changes are constrained. When the two models disagree, the operator decides.
 2. **Every patch is verified before printing.** After the re-slice, the pre-flight compares the G-code before and after (speed and flow per feature, fan, volumetric flow against the filament limit). If the change does not show in the G-code, the patch does not pass.
 3. **The result is measured.** After the reprint the same model assesses the part with the same rubric. The loop stops on success or after K iterations, and in that case hands over to a human with the history.
-4. **It works on stock machines.** Phone photos and the preset are enough. No extra cameras or modified firmware. Live telemetry from the P1S is an add-on, not a requirement.
+4. **It works on stock machines.** Phone photos and the preset are enough. No extra cameras or modified firmware. Live monitoring through the P1S camera (Mode 1) is an add-on, not a requirement.
+5. **It catches failures while they happen, without crying wolf.** In Mode 1 the E4B looks at one camera frame every few seconds, and a temporal filter turns only persistent problems into alerts. A pause is proposed, never sent without a click, and the frames become the evidence for the Mode 2 fix.
 
 ## 5. Scope
 
-**In (MVP), Mode 2 only, after printing:**
+**Mode 2, after printing (implemented):**
 - upload of the printed `.3mf` project (it holds model and settings) and of 1–4 photos of the part;
-- diagnosis with Gemma 4 on vLLM-ROCm (MI300X), with JSON output constrained by a schema;
+- diagnosis with Gemma 4 26B-A4B (JSON schema); planned today: the fine-tuned E4B labels each photo and the 26B uses
+  the labels as a hint, disagreement goes to the operator ([09](09_MODE2_TWO_MODELS.md));
 - defect → parameters KB, patch generation (at most 2 parameters) and validator;
-- re-slice with the OrcaSlicer CLI, G-code parsing and pre-flight;
-- approval UI with the preset diff, the pre-flight diff and preset export;
-- evaluation on a series of prints with induced defects, AMD benchmark.
+- headless re-slice with the slicer that created the project, G-code parsing and pre-flight;
+- approval UI with the preset diff and the pre-flight, "Reprint OK", going back to any step;
+- evaluation on prints with induced defects, AMD benchmark.
+
+**Mode 1, during the print (specified, being built: [08](08_MODE1_LIVE.md)):**
+- frames from a replay folder (P0) or the P1S camera (P1), one every `interval_s`;
+- per-frame detection with the fine-tuned Gemma 4 E4B ([07](07_VISION_MODEL.md)), temporal filter, alerts and a
+  proposed pause (sent over MQTT only after a click, P2);
+- evidence frames attached to a Mode 2 case.
 
 **Stretch:**
-- Mode 1, live: MQTT telemetry and P1S camera frames, detection of gross defects, pause or stop with confirmation;
 - sending the reprint over MQTT (`print.project_file`);
-- comparison between 26B-A4B and 31B, fine-tuning a light classifier on ROCm (CAXTON dataset).
+- 26B-A4B vs 31B; the E4B fine-tuning re-run on the MI300X (`finetune/`); CAXTON benchmark.
 
 **Out:**
 - changing parameters during the print (they are baked into the G-code);
 - mechanical failures (belts, damaged nozzle, eccentric nuts);
-- printers other than the P1S and slicers other than OrcaSlicer;
-- any bypass of Bambu authentication.
+- printers other than Bambu Lab (P1S tested), slicers other than BambuStudio/OrcaSlicer;
+- `print.stop` or any automatic printer command; any bypass of Bambu authentication.
 
 ## 6. Corrections to the original concept
 
 | Original concept ([`01_printloop.md`](../ideas/01_printloop.md)) | Corrected version | Reason (source in 01_RESEARCH_STACK) |
 | :-- | :-- | :-- |
-| Mode 1 and Mode 2 on equal footing, Mode 1 as the trigger | **Mode 2 is the product**, Mode 1 is stretch | The P1S camera produces 1280×720 JPEGs at ~0.5–1 fps (§2.3). The P1S already has on-board spaghetti detection (§5) |
+| Mode 1 and Mode 2 on equal footing, Mode 1 as the trigger | **Mode 2 is the product**, Mode 1 is stretch (18/10: Mode 1 back in scope as a per-frame monitor with the fine-tuned E4B, [08](08_MODE1_LIVE.md)) | The P1S camera produces 1280×720 JPEGs at ~0.5–1 fps (§2.3). The P1S already has on-board spaghetti detection (§5) |
 | Video input to Gemma (up to 32 frames per request) | **Multiple images** (`--limit-mm-per-prompt`) | The vLLM recipe does not document a frame limit for video (§3.2). Photos are simpler and sharper |
 | "Speed" as an override during the print | Only **4 speed levels** (silent, standard, sport, ludicrous) | `print.print_speed` only accepts values 1–4 (§2.2) |
 | Flattening presets with `inherits` by hand | The CLI's **`--export-settings`** | The CLI exports the effective settings to a JSON (§4.2) |
@@ -79,3 +87,6 @@ Neither turns an observed defect into a **persistent, verified change to the pre
 | [04_PLAN_DECISIONS_RISKS.md](04_PLAN_DECISIONS_RISKS.md) | PrintLoop vs MarginSwarm decision, spikes with go/no-go criteria, plan to delivery, risks, open questions |
 | [05_API.md](05_API.md) | API contract for the frontend, states and allowed actions, fixtures |
 | [06_IMPLEMENTATION_STATUS.md](06_IMPLEMENTATION_STATUS.md) | What works, measured results, limits, next steps |
+| [07_VISION_MODEL.md](07_VISION_MODEL.md) | The fine-tuned Gemma 4 E4B detector: data, contract, results, serving |
+| [08_MODE1_LIVE.md](08_MODE1_LIVE.md) | Mode 1 implementation spec: frame sources, monitor, temporal filter, API, UI, evaluation |
+| [09_MODE2_TWO_MODELS.md](09_MODE2_TWO_MODELS.md) | Mode 2 with two models: E4B labels, 26B reasons, agreement rule, new classes |

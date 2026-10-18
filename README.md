@@ -1,11 +1,12 @@
 # PrintLoop
 
 > **AMD Developer Hackathon: ACT III** · Track 1: Intelligent Industry
-> Status: **Mode 2 implemented and tested end to end** with the real slicer, **UI included** (18 Oct 2026). Gemma diagnosis on the AMD endpoint still to be measured: see [06_IMPLEMENTATION_STATUS](docs/printloop/06_IMPLEMENTATION_STATUS.md).
+> Status (18 Oct 2026): **Mode 2 implemented and tested end to end** with the real slicer, **UI included**. **Fine-tuned Gemma 4 E4B defect detector trained** (93.8% on its test split vs 18.3% zero-shot). **Mode 1** (live monitoring) and **Mode 2 with two models** are specified and being built. See [06_IMPLEMENTATION_STATUS](docs/printloop/06_IMPLEMENTATION_STATUS.md).
 
 **PrintLoop looks at a badly printed part, finds the cause and proposes a minimal change to the slicer preset. Before the reprint it checks in the G-code that the change has the intended effect, and applies it only with the operator's approval.**
 
-- **LLM (Gemma 4 on vLLM-ROCm, AMD MI300X):** classifies the defect from 1–4 photos into a closed taxonomy, with severity and evidence; chooses the fix among pre-filtered candidates.
+- **Two Gemma 4 models (vLLM-ROCm on AMD MI300X, or llama.cpp):** a **fine-tuned E4B** names the defects on each image (and on each camera frame in Mode 1); the **26B-A4B** judges severity and evidence from the photos and chooses the fix among pre-filtered candidates. When they disagree, the operator decides.
+- **Mode 1 (in progress):** watches the printer camera, raises an alert only when a defect persists over several frames, proposes a pause (sent only after a click) and keeps the frames as evidence for the Mode 2 fix.
 - **Deterministic core:** defect → parameters knowledge base, validator (step, direction, material limits, oscillation), headless re-slice and **G-code pre-flight**: every parameter it can change has a measurable signature in the G-code.
 - **Human:** approves, rejects with a reason or changes the values; confirms a good reprint with one click; can go back to any earlier step. The loop stops at an acceptable part or after K = 3 patches. Everything goes into the audit log.
 - **Data:** a test set we produced on a Bambu Lab P1S, with defects induced by a single known parameter (the ground truth of the cause).
@@ -37,7 +38,9 @@ Gemma on the AMD MI300X droplet: `infra/serve_gemma_vision.sh`, then `LLM_BASE_U
 | Correct patch (induced parameter, right direction) given the correct diagnosis | **7/8** cases, negative control included ([06 §3](docs/printloop/06_IMPLEMENTATION_STATUS.md)) |
 | Patches passing the pre-flight | 7/7 |
 | Headless slicing + parsing + pre-flight per proposal | ~1–3 s (coupon), ~2 s per 150k lines of G-code |
-| Photo diagnosis with Gemma 4 on the MI300X | **to be measured** |
+| Fine-tuned E4B detector, primary class on 1,000 test images (in-distribution) | **93.8%** PyTorch, **90.9%** GGUF Q8_0, ~0.75 s/frame (vs 18.3% zero-shot; stock 26B 24.5% on 200 of them) — [07](docs/printloop/07_VISION_MODEL.md) |
+| Photo diagnosis on PrintLoop prints (26B alone vs E4B + 26B) | **to be measured** |
+| Anything on AMD hardware | **to be measured**: the figures above come from NVIDIA GPUs |
 
 ## Layout
 
@@ -60,7 +63,9 @@ Gemma on the AMD MI300X droplet: `infra/serve_gemma_vision.sh`, then `LLM_BASE_U
 - [06_IMPLEMENTATION_STATUS](docs/printloop/06_IMPLEMENTATION_STATUS.md): what works, results, next steps
 - [05_API](docs/printloop/05_API.md): contract for the frontend
 - [03_ARCHITECTURE](docs/printloop/03_ARCHITECTURE.md): components and pre-flight
-- [07_VISION_MODEL](docs/printloop/07_VISION_MODEL.md): fine-tuned Gemma 4 E4B defect detector for Mode 1 (93.8% on the test split vs 18.3% zero-shot), design of Mode 1, options for Mode 2
+- [07_VISION_MODEL](docs/printloop/07_VISION_MODEL.md): the fine-tuned Gemma 4 E4B defect detector (93.8% on the test split vs 18.3% zero-shot)
+- [08_MODE1_LIVE](docs/printloop/08_MODE1_LIVE.md) · [09_MODE2_TWO_MODELS](docs/printloop/09_MODE2_TWO_MODELS.md): specs of the work in progress
+- [04_PLAN_DECISIONS_RISKS](docs/printloop/04_PLAN_DECISIONS_RISKS.md) §3: today's plan and cut lines
 
 ## Security
 

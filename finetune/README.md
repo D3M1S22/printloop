@@ -1,7 +1,7 @@
 # PrintLoop · vision fine-tuning (extra component)
 
 LoRA fine-tuning of **Gemma 4 E4B** (vision + language) to recognise FDM print defects in a single camera frame,
-for PrintLoop **Mode 1** (live monitoring). It is a separate component: it has its own `pyproject.toml`, its own
+for PrintLoop **Mode 1** (live monitoring, [08](../docs/printloop/08_MODE1_LIVE.md)) and, as a per-photo hint to the 26B, for Mode 2 ([09](../docs/printloop/09_MODE2_TWO_MODELS.md)). It is a separate component: it has its own `pyproject.toml`, its own
 Docker image and its own CLI (`printloop-ft`), and the PrintLoop app does not import it. The app only talks to the
 resulting model through an OpenAI-compatible endpoint (llama.cpp or vLLM).
 

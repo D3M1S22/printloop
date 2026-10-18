@@ -8,32 +8,41 @@ The LLM classifies and explains. The numbers of the patch (ranges, steps, limits
 
 ## 2. Components
 
+Two models, two modes. **Mode 2** (after the print, implemented) fixes the preset; **Mode 1** (during the print,
+planned: [08](08_MODE1_LIVE.md)) watches the camera and feeds Mode 2 with evidence. Dashed: planned.
+
 ```mermaid
 flowchart TD
     subgraph In["Inputs"]
         Photos["Photos of the part (1–4)<br/>+ optional operator note"]
-        Preset["OrcaSlicer preset (process, filament, printer)<br/>+ 3MF/STL model"]
-        Live["Stretch: P1S MQTT + camera :6000"]
+        Project["Printed 3MF project<br/>(model + effective settings)"]
+        Cam["Mode 1: P1S camera :6000 / replay folder<br/>+ MQTT status"]
     end
 
-    subgraph AMD["AMD Instinct MI300X · vLLM-ROCm"]
-        Diag["Diagnosis · Gemma 4 26B-A4B<br/>JSON schema: class, severity, evidence, confidence"]
-        Prop["Patch proposal · Gemma 4<br/>chooses among the KB candidates"]
+    subgraph AMD["AMD Instinct MI300X · vLLM-ROCm (or llama.cpp in development)"]
+        Det["Detector · Gemma 4 E4B fine-tuned<br/>one image → {defects, primary}"]
+        Diag["Reasoner · Gemma 4 26B-A4B<br/>severity, evidence, question"]
+        Prop["Patch proposal · Gemma 4 26B<br/>chooses among the KB candidates"]
     end
 
+    Live["Mode 1 monitor<br/>k-of-n filter, alerts, pause proposal"]
     KB[("Deterministic KB<br/>defect → parameters, direction, step, range")]
-    Val["Validator<br/>schema, range, material limits, max 2 keys, no oscillation"]
-    Orca["OrcaSlicer CLI<br/>--export-settings · --slice · --export-3mf"]
+    Val["Validator<br/>range, material limits, max 2 keys, no oscillation"]
+    Slicer["BambuStudio / OrcaSlicer CLI<br/>headless re-slice"]
     PF["Pre-flight<br/>G-code diff before/after per feature"]
-    HITL["Operator approval<br/>preset diff + pre-flight diff"]
-    Out["Export of the patched preset<br/>(stretch: reprint over MQTT)"]
-    Audit[("JSONL audit log<br/>runs/{case_id}.jsonl")]
+    HITL["Operator<br/>approve / reject / edit / Reprint OK / step back"]
+    Out["Patched 3MF to print"]
+    Audit[("JSONL audit log<br/>runs/cases/{id}/audit.jsonl")]
 
+    Cam -.-> Live -.-> Det
+    Live -. "evidence frames" .-> Photos
+    Live -. "pause after a click" .-> HITL
+    Photos -.-> Det
+    Det -. "labels as a hint" .-> Diag
     Photos --> Diag
-    Live -. "gross defects → pause" .-> Diag
-    Preset --> Orca
-    Diag --> KB --> Prop --> Val --> Orca --> PF --> HITL --> Out
-    Out -- "new photos after the reprint" --> Diag
+    Diag --> KB --> Prop --> Val --> Slicer --> PF --> HITL --> Out
+    Project --> Slicer
+    Out -- "photos of the reprint, or Reprint OK" --> Diag
     Val -- "rejection with reason" --> Prop
     PF -- "patch did not propagate" --> Prop
     Diag & Prop & Val & PF & HITL --> Audit
@@ -163,16 +172,15 @@ Formats verified on real BambuStudio 2.8.2 G-code (spike S2): `; FEATURE: Bridge
 
 Implementation: effect threshold `MIN_EFFECT` = 25% of the change set, volumetric flow at the length-weighted p99. A limit fails only if the patch makes it worse: if it was already exceeded before, it passes with a note.
 
-## 6. Mode 1 (stretch)
+## 6. Mode 1 (planned)
 
-> Updated design and the detector to use: [07_VISION_MODEL.md](07_VISION_MODEL.md) §7. The detector is a Gemma 4 E4B
-> fine-tuned on public FDM defect datasets (one frame → `{"defects", "primary"}` over 12 classes, ~0.75 s per frame
-> on llama.cpp), it supersedes the "~30 s to the 26B with a reduced taxonomy" plan below.
+Spec: [08_MODE1_LIVE.md](08_MODE1_LIVE.md). It replaces the first draft that sent a frame to the 26B every ~30 s
+with a reduced taxonomy: the per-frame model is the fine-tuned **Gemma 4 E4B** ([07](07_VISION_MODEL.md)), one frame
+every `interval_s` (default 10 s), through a k-of-n **temporal filter**. Pause is only proposed and sent after a click;
+`print.stop` is never sent. Evidence frames become photos of a Mode 2 case.
 
-- Read-only MQTT client for the status (`layer_num`, `mc_percent`, `gcode_state`, temperatures) and a camera client on :6000 that saves one frame every N seconds.
-- Every ~30 s the latest frame goes to Gemma with a reduced taxonomy (`spaghetti`, `warping`, `layer_shift`, `none`).
-- If it finds a defect with high confidence, the UI proposes a **pause**, and the pause starts only after a click. `print.stop` is never automatic.
-- Frames showing the defect become evidence of a Mode 2 case.
+In Mode 2 the same E4B labels each uploaded photo and the 26B uses the labels as a hint, with disagreement sent to the
+operator: [09_MODE2_TWO_MODELS.md](09_MODE2_TWO_MODELS.md).
 
 ## 7. API for the frontend
 
@@ -191,14 +199,16 @@ src/printloop/
 ├── preflight.py     # propagation, effect on the toolpath, limits
 ├── models.py        # pydantic contracts (Case, Diagnosis, Proposal, Preflight, …)
 ├── llm.py           # OpenAI-compatible client with images (adapted from MarginSwarm)
-├── diagnose.py      # Gemma (JSON schema) or operator
+├── diagnose.py      # Gemma (JSON schema) or operator; planned: E4B labels as a hint + agreement rule (09)
 ├── propose.py       # rule-based or Gemma proposal, among the filtered candidates
 ├── validate.py      # deterministic validator
 ├── loop.py          # state machine, confirm, rewind, cases on disk, JSONL audit
+├── live/            # planned, Mode 1: sources, printer (MQTT), detector, policy, monitor (08 §11)
 ├── api.py · cli.py  # FastAPI :8788 and the `printloop` CLI
 ├── testset.py       # coupon and cases with induced defects
 ├── eval.py · bench.py
-infra/               # serve_gemma_vision.sh (vLLM MI300X), serve_local_llama.sh (Radeon)
+infra/               # serve_gemma_vision.sh (26B, vLLM MI300X), serve_vision_e4b.sh (E4B detector, llama.cpp), serve_local_llama.sh (Radeon)
+finetune/            # separate component: LoRA fine-tuning of the E4B detector (MI300X recipe), not imported by the app
 examples/coupon/     # coupon 3MF project (our model, P1S + PLA system presets)
 web/fixtures/        # real API replies for the frontend
 tests/               # unit + integration with the slicer + faked LLM path
